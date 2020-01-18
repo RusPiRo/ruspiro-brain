@@ -1,0 +1,24 @@
+[package]
+name = "ruspiro-pi-test"
+authors = ["André Borrmann <pspwizard@gmx.de>"]
+version = "0.1.0"
+description = """
+Test kernel to be deployed to the Pi to run on-device tests for a certain crate's functionality
+"""
+license = "Apache-2.0"
+edition = "2018"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "kernel"
+path = "./src/kernel.rs"
+
+[dependencies]
+ruspiro-register = { path = "../../register" }
+ruspiro-allocator = { path = "../../allocator" }
+ruspiro-console = { path = "../../console" }
+ruspiro-timer = { path = "../../timer", features = ["ruspiro_pi3"] }
+ruspiro-brain = { path = "../", features = ["ruspiro_pi3"] }
+ruspiro-lock = { path = "../../lock" }

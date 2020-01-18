@@ -40,16 +40,18 @@
 //!
 //!
 
-#[cfg(not(any(test, doctest)))]
 #[macro_use]
+#[cfg(not(any(test, doctest)))]
 extern crate ruspiro_boot;
 extern crate alloc;
 
+use ruspiro_interrupt::*;
 use ruspiro_singleton::Singleton;
 
 mod brain;
-mod mpmc;
 use brain::*;
+pub mod mpmc;
+
 
 mod thoughts;
 pub use thoughts::*;
@@ -92,14 +94,23 @@ fn run(core: u32) -> ! {
         unsafe { awake_with() };
     }
 
+    // as progress on Thoughts are quite likely depending on interrupt sources, enable them
+    // globally on each core
+    enable_interrupts();
+
     loop {
         // as long as the executor of the brain has something to think on, think on it
+        // there is no need to get exclusive access to the ``Brain`` here as the only data that
+        // may change is the **need-to-think-on-queue** that is implemented as a lock free
+        // multi producer multi consumer queue
         BRAIN.use_for(|brain| brain.think());
         // that's it, we are done for the moment, so go to sleep until an event occurs:
         // - an interrupt is raised
         // - a SEV instruction was processed
-        //#[cfg(any(target_arch="arm", target_arch="aarch64"))]
-        //unsafe { asm!("wfe") }
+        /*#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+        unsafe {
+            asm!("wfe")
+        }*/
     }
 }
 
@@ -108,7 +119,7 @@ fn run(core: u32) -> ! {
 ///
 /// # Example
 /// ```no_run
-/// # use ruspiro_brain::{*, thoughts::*};
+/// # use ruspiro_brain::*;
 /// # use core::pin::Pin;
 /// struct FooThought {
 ///     /* fields ommited */
@@ -132,8 +143,10 @@ fn run(core: u32) -> ! {
 ///     spawn(thought);
 /// }
 /// ```
-pub fn spawn(thought: impl Thought<Output = ()> + 'static + Send) {
-    BRAIN.use_for(|brain| brain.spawn(thought));
+pub fn spawn(thinkable: impl Thinkable<Output = ()> + 'static + Send) {
+    // spawning a new Thought does not need a mutual exclusive lock on the Brain as the underlying
+    // **need-to-think-on-queue** is implemented as lock free mpmc queue
+    BRAIN.use_for(|brain| brain.spawn(thinkable));
 }
 
 /// Expand the code block given within { } to this macro to a generic Thought "body" and spawn it to
@@ -149,7 +162,7 @@ macro_rules! awake_with {
 
             pub struct AwakeThought;
 
-            impl Thought for AwakeThought {
+            impl Thinkable for AwakeThought {
                 type Output = ();
 
                 fn think(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Conclusion<Self::Output> {

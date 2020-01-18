@@ -9,27 +9,27 @@
 //! Inspired by https://docs.rs/futures-util/0.3.1/src/futures_util/future/future/chain.rs.html
 //!
 
-use crate::thoughts::{Conclusion, Context, Thought};
+use crate::thoughts::{Conclusion, Context, Thinkable};
 use core::marker::Unpin;
 use core::pin::Pin;
 
 /// As thinking on a ``Thought`` that already has come to a ``Conclusion`` violates the rules we need
 /// to keep track of the state of the current chain
-pub(crate) enum Chain<IN, OUT, F> {
+pub(crate) enum Chain<IN, F, OUT> {
     Inbound(IN, Option<F>),
     Outbound(OUT),
     Empty,
 }
 
-impl<IN: Unpin, OUT: Unpin, F> Unpin for Chain<IN, OUT, F> {}
+impl<IN: Unpin, F, OUT: Unpin> Unpin for Chain<IN, F, OUT> {}
 
-impl<IN, OUT, F> Chain<IN, OUT, F>
+impl<IN, F, OUT> Chain<IN, F, OUT>
 where
-    IN: Thought,
-    OUT: Thought,
+    IN: Thinkable,
+    OUT: Thinkable,
     F: FnOnce(IN::Output) -> OUT,
 {
-    pub(crate) fn new(inbound: IN, function: F) -> Chain<IN, OUT, F> {
+    pub(crate) fn new(inbound: IN, function: F) -> Chain<IN, F, OUT> {
         Chain::Inbound(inbound, Some(function))
     }
 

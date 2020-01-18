@@ -1,32 +1,33 @@
-/***********************************************************************************************************************
+/***************************************************************************************************
  * Copyright (c) 2019 by the authors
  *
  * Author: André Borrmann
  * License: Apache License 2.0
- **********************************************************************************************************************/
+ **************************************************************************************************/
 
 //! # Then combinator
 //!
 use super::chain::*;
-use crate::thoughts::{Conclusion, Context, Thought};
+use crate::thoughts::{Conclusion, Context, Thinkable};
 use core::pin::Pin;
 use pin_utils::unsafe_pinned;
 
-/// Chain two ``Thought``s in a way that we start thinking on the second one, once the first
-/// has been come to a conclusion. This combinator takes an existing ``Thought`` and uses the
-/// provided closure to return a new ``Thought``
-pub struct Then<IN: Thought, OUT: Thought, F> {
-    chain: Chain<IN, OUT, F>,
+/// Chain two [``Thinkable``]s in a way that we start thinking on the second one, once the first
+/// has been come to a conclusion. This combinator takes an existing ``Thinkable`` and uses the
+/// provided closure to return a new ``Thinkable``
+pub struct Then<IN: Thinkable, F, OUT: Thinkable> {
+    chain: Chain<IN, F, OUT>,
 }
 
-impl<IN, OUT, F> Then<IN, OUT, F>
+impl<IN, F, OUT> Then<IN, F, OUT>
 where
-    IN: Thought,
-    OUT: Thought,
+    IN: Thinkable,
+    OUT: Thinkable,
+    F: FnOnce(IN::Output) -> OUT,
 {
-    unsafe_pinned!(chain: Chain<IN, OUT, F>);
+    unsafe_pinned!(chain: Chain<IN, F, OUT>);
 
-    pub(crate) fn new(thought: IN, function: F) -> Then<IN, OUT, F>
+    pub(crate) fn new(thought: IN, function: F) -> Then<IN, F, OUT>
     where
         F: FnOnce(IN::Output) -> OUT,
     {
@@ -36,11 +37,11 @@ where
     }
 }
 
-/// Implementation of the chained ``Thought``
-impl<IN, OUT, F> Thought for Then<IN, OUT, F>
+/// Implementation of the chained [``Thinkable``]
+impl<IN, F, OUT> Thinkable for Then<IN, F, OUT>
 where
-    IN: Thought,
-    OUT: Thought,
+    IN: Thinkable,
+    OUT: Thinkable,
     F: FnOnce(IN::Output) -> OUT,
 {
     type Output = OUT::Output;

@@ -10,9 +10,12 @@
 
 use alloc::boxed::Box;
 use core::sync::atomic::{AtomicPtr, Ordering};
+use ruspiro_console::*;
+use ruspiro_lock::Spinlock;
 
 /// Representation of an entry in the [Queue]
 #[derive(Debug)]
+#[repr(align(16))]
 struct Node<T> {
     /// Pointer to the next node in the [Queue]. This allows for storing the items as a single
     /// linked list ensuring Atomic access to the value from different cores
@@ -39,6 +42,7 @@ pub struct Queue<T> {
     /// The tail of the [Queue] refers to the last node of the [Queue] new items can be [pushed]ed
     /// after
     tail: AtomicPtr<Node<T>>,
+    guard: Spinlock,
 }
 
 // The Queue is Send and Sync as it can be savely used accross cores
@@ -64,6 +68,7 @@ impl<T> Queue<T> {
         Queue {
             head: AtomicPtr::new(root),
             tail: AtomicPtr::new(root),
+            guard: Spinlock::new(),
         }
     }
 
@@ -76,26 +81,30 @@ impl<T> Queue<T> {
             // store this node at the tail giving the current last entry using atomic operation
             // to ensure any other core see's the new value of this store when trying to push a new
             // node in the meantime. So they already see the new tail
-            let prev = self.tail.swap(node, Ordering::AcqRel);
+            let prev = self.tail.swap(node, Ordering::SeqCst);
             // finally we update the next pointer in the old tail to ensure proper linkage to our new
             // node from here this node is "pop-able"
-            (*prev).next.store(node, Ordering::Release);
+            (*prev).next.store(node, Ordering::Relaxed);
         }
     }
 
     /// Pop an element from the head of the [Queue]
     pub fn pop(&self) -> Pop<T> {
-        unsafe {
+        // for the time beeing popping from the queue is not "lockfree". However, as this happens
+        // only outside of an interrupt this might be fine
+        self.guard.aquire();
+        let result = unsafe {
             // get the first "pop-able" node from the head and replace it with a dummy node
             // to ensure simultaneus "pop's" does not happen in a strange order
             let dummy = Node::new(None);
             // if this operation finishes any other core that tries to pop a Node will get the
             // dummy Node
-            let head = self.head.swap(dummy, Ordering::AcqRel);
+            let head = self.head.swap(dummy, Ordering::SeqCst);
+            //info!("swapped head {:#x?} - h {:#x?}", self.head, head);
             //let head = self.head.load(Ordering::Acquire);
             // this first entry is either the queue start marker/dummy node or the entry that has
             // been popped last. So the node we will pop now is it's next one
-            let next = (*head).next.load(Ordering::Acquire);
+            let next = (*head).next.load(Ordering::Relaxed);
             if !next.is_null() {
                 // there is an item that could be retrieved from the queue
                 // move the head of the queue to the entry we are about to retrieve
@@ -109,23 +118,26 @@ impl<T> Queue<T> {
                 let _: Box<Node<T>> = Box::from_raw(head);
                 // destruct the dummy node to release the memory
                 let _: Box<Node<T>> = Box::from_raw(dummy);
-                return Pop::Data(value);
-            }
-
-            // if we get here the current head does not have any next item, so the queue is actually
-            // empty, or does contain the dummy entry, so restore the original head entry
-            self.head.store(head, Ordering::Release);
-            // destuct the dummy node to release the memory
-            let _: Box<Node<T>> = Box::from_raw(dummy);
-
-            // if the head and tail where the same the Queue was really empty, otherwise it was an
-            // intermediate state
-            if self.tail.load(Ordering::Acquire) == head {
-                Pop::Empty
+                Pop::Data(value)
             } else {
-                Pop::Intermediate
+
+                // if we get here the current head does not have any next item, so the queue is actually
+                // empty, or does contain the dummy entry, so restore the original head entry
+                let dummy = self.head.swap(head, Ordering::SeqCst);
+                // destruct the dummy node to release the memory
+                let _: Box<Node<T>> = Box::from_raw(dummy);
+                // if the head and tail where the same the Queue was really empty, otherwise it was an
+                // intermediate state
+                if self.tail.load(Ordering::Relaxed) == head {
+                    Pop::Empty
+                } else {
+                    Pop::Intermediate
+                }
             }
-        }
+        };
+        self.guard.release();
+
+        result
     }
 }
 
@@ -188,10 +200,10 @@ mod tests {
         let mut i = 0;
         while i < nthreads * nmsgs {
             match queue.pop() {
-                Pop::Empty => println!("Empty at {}", i),
-                Pop::Intermediate => println!("Intermediate at {}", i),
+                Pop::Empty => std::println!("Empty at {}", i),
+                Pop::Intermediate => std::println!("Intermediate at {}", i),
                 Pop::Data(v) => {
-                    println!("pop {}", v);
+                    std::println!("pop {}", v);
                     i += 1;
                 }
             }
@@ -216,9 +228,9 @@ mod tests {
             thread::spawn(move || {
                 for i in 0..nmsgs {
                     match q.pop() {
-                        Pop::Empty => println!("Empty at {}", i),
-                        Pop::Intermediate => println!("Intermediate at {}", i),
-                        Pop::Data(v) => println!("pop {}", v),
+                        Pop::Empty => std::println!("Empty at {}", i),
+                        Pop::Intermediate => std::println!("Intermediate at {}", i),
+                        Pop::Data(v) => std::println!("pop {}", v),
                     };
                 }
             });
@@ -253,8 +265,8 @@ mod tests {
             thread::spawn(move || {
                 for i in 0..nmsgs {
                     match q.pop() {
-                        Pop::Empty => println!("Empty at {}", i),
-                        Pop::Intermediate => println!("Intermediate at {}", i),
+                        Pop::Empty => std::println!("Empty at {}", i),
+                        Pop::Intermediate => std::println!("Intermediate at {}", i),
                         Pop::Data(v) => q2.push(v),
                     };
                 }
@@ -266,10 +278,10 @@ mod tests {
         let mut i = 0;
         while i < nthreads * nmsgs {
             match queue2.pop() {
-                Pop::Empty => println!("Empty at {}", i),
-                Pop::Intermediate => println!("Intermediate at {}", i),
+                Pop::Empty => std::println!("Empty at {}", i),
+                Pop::Intermediate => std::println!("Intermediate at {}", i),
                 Pop::Data(v) => {
-                    println!("pop {}", v);
+                    std::println!("pop {}", v);
                     i += 1;
                 }
             }

@@ -99,7 +99,7 @@ pub unsafe fn clone_wakeable_raw<T: WakeAble>(wakeable: *const ()) -> RawWaker {
 /// Trampoline function that is used to clone the wakeable when cloning the waker that refers to this
 /// wakeable
 /// # Safety
-/// This is safe as there is only one option to create the ``Wakeable`` 
+/// This is safe as there is only one option to create the ``Wakeable``
 pub unsafe fn drop_wakeable_raw<T: WakeAble>(wakeable: *const ()) {
     drop(Arc::<T>::from_raw(wakeable as *const T));
 }

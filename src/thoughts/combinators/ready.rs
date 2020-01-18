@@ -5,9 +5,9 @@
  * License: Apache License 2.0
  **********************************************************************************************************************/
 
-//! # An always Ready Thought
+//! # An always Ready Thinkable
 //!
-use crate::thoughts::{Conclusion, Context, Thought};
+use crate::thoughts::{Conclusion, Context, Thinkable};
 use core::pin::Pin;
 
 pub struct ReadyThought<T> {
@@ -18,7 +18,7 @@ pub fn ready<T>(value: T) -> ReadyThought<T> {
     ReadyThought { value: Some(value) }
 }
 
-impl<T> Thought for ReadyThought<T> {
+impl<T> Thinkable for ReadyThought<T> {
     type Output = T;
 
     fn think(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Conclusion<Self::Output> {
