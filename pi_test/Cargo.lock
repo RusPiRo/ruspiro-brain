@@ -83,11 +83,7 @@ dependencies = [
 
 [[package]]
 name = "ruspiro-allocator"
-version = "0.3.1"
-dependencies = [
- "cc",
- "ruspiro-lock",
-]
+version = "0.4.0"
 
 [[package]]
 name = "ruspiro-boot"
@@ -109,10 +105,19 @@ version = "0.1.0"
 dependencies = [
  "pin-utils",
  "ruspiro-boot",
+ "ruspiro-brain-macros",
  "ruspiro-console",
  "ruspiro-interrupt",
  "ruspiro-lock",
  "ruspiro-singleton",
+]
+
+[[package]]
+name = "ruspiro-brain-macros"
+version = "0.1.0"
+dependencies = [
+ "quote 0.6.13",
+ "syn 0.15.44",
 ]
 
 [[package]]
@@ -124,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "ruspiro-console"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ruspiro-singleton",
 ]
@@ -143,7 +148,6 @@ name = "ruspiro-interrupt"
 version = "0.3.1"
 dependencies = [
  "paste",
- "ruspiro-console",
  "ruspiro-interrupt-core",
  "ruspiro-interrupt-macros",
  "ruspiro-register",
@@ -168,7 +172,7 @@ version = "0.3.2"
 
 [[package]]
 name = "ruspiro-mailbox"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "paste",
  "ruspiro-cache",
@@ -184,9 +188,6 @@ dependencies = [
  "ruspiro-allocator",
  "ruspiro-brain",
  "ruspiro-console",
- "ruspiro-lock",
- "ruspiro-register",
- "ruspiro-timer",
 ]
 
 [[package]]
@@ -204,7 +205,6 @@ dependencies = [
 name = "ruspiro-timer"
 version = "0.4.0"
 dependencies = [
- "ruspiro-console",
  "ruspiro-interrupt",
  "ruspiro-register",
  "ruspiro-singleton",
@@ -212,7 +212,7 @@ dependencies = [
 
 [[package]]
 name = "ruspiro-uart"
-version = "0.4.0"
+version = "0.3.0"
 dependencies = [
  "ruspiro-console",
  "ruspiro-gpio",

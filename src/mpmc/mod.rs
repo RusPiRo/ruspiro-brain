@@ -11,6 +11,7 @@
 use alloc::sync::Arc;
 mod queue;
 use queue::*;
+use ruspiro_console::*;
 
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
     let queue = Arc::new(Queue::new());
@@ -55,6 +56,7 @@ impl<T> Receiver<T> {
     }
 
     pub fn recv(&self) -> Result<T, ()> {
+        //info!("get next mpc entry");
         match self.inner.pop() {
             Pop::Data(v) => Ok(v),
             Pop::Empty | Pop::Intermediate => Err(()),

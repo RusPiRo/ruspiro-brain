@@ -9,6 +9,7 @@
 #![feature(associated_type_bounds, asm)]
 
 //! # RusPiRo Brain
+//! 
 //! This is the **brain** of any RusPiRo - Robot running in a kind of 'async' processing mode.
 //! As for a human brain it's quite unlikely that everything get's processed in a sequential order.
 //! There are always several thoughts that are processed in parallel/simultaneous to accomplish a
@@ -23,7 +24,6 @@
 //! light-weight and feature reduced version of this.
 //!
 //! ## Parts of this crate
-//!
 //! The following table gives an overview on the different peaces of this crate and their purpose and
 //! allows to get some insights on how this things work together. In addition the corresponding Rust
 //! standard entity who's concepts has been borrowed to implement this crate.
@@ -40,14 +40,17 @@
 //! [``Wakeable``]    | [``ArcWake``](https://docs.rs/futures/0.3.1/futures/task/trait.ArcWake.html) | This trait is implemented for the ``Thought`` and indicates that this one could be re-thought by the brain by waking it.
 //! [``Waker``]       | | This is the abstract representation of something that could be waken up. It could be seen as a storage for a ``RawWaker`` that contains the function pointers to the ``Wakeable``s wake functions.
 //! [``Context``]     | | This is actually the container used to pass the the ``Waker`` along to the ``Thinkable`` to allow the same to use the contained ``Waker`` (a clone of it) to be registers for waking up this ``Thinkable`` if it was not yet able to provide a ``Conclusion``
-//! ``spawn``         | | This function is used to spawn new ``Thinkables``s to the ``Brain`` so it could think on those to make progress and try to come to a ``Conclusion``. The ``Thinkable`` is internally wrapped into a ``Thought`` and pushed to the *need-to-think-on-queue*
+//! [``spawn``]       | | This function is used to spawn new ``Thinkables``s to the ``Brain`` so it could think on those to make progress and try to come to a ``Conclusion``. The ``Thinkable`` is internally wrapped into a ``Thought`` and pushed to the *need-to-think-on-queue*
 //!
 //!
 //!
 
+#[cfg(not(any(test, doctest)))]
 #[macro_use]
 extern crate ruspiro_boot;
 extern crate alloc;
+
+pub use ruspiro_brain_macros::*;
 
 use ruspiro_interrupt::*;
 use ruspiro_singleton::Singleton;
@@ -70,6 +73,7 @@ run_with!(run);
 
 extern "C" {
     fn awake_with();
+    fn __start_thinking__();
 }
 
 fn alive(core: u32) {
@@ -86,7 +90,7 @@ fn alive(core: u32) {
         // This function has to spawn it's ``Thinkables`` to the ``Brain`` if it like to make
         // progress on them, to ensure all cores are kicked off before doing so, move this into the
         // ``run`` function for the time beeing...
-        unsafe { awake_with() };
+        unsafe { __start_thinking__() };
     }
 }
 
@@ -189,3 +193,7 @@ macro_rules! awake_with {
         }
     };
 }
+
+
+#[cfg(test)]
+mod tests;

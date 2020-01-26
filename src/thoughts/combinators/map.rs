@@ -10,6 +10,7 @@
 use crate::thoughts::{Conclusion, Context, Thinkable};
 use core::pin::Pin;
 use pin_utils::{unsafe_pinned, unsafe_unpinned};
+use ruspiro_console::*;
 
 pub struct Map<IN, F> {
     thought: IN,

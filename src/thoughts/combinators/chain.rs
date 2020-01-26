@@ -12,6 +12,7 @@
 use crate::thoughts::{Conclusion, Context, Thinkable};
 use core::marker::Unpin;
 use core::pin::Pin;
+use ruspiro_console::*;
 
 /// As thinking on a ``Thought`` that already has come to a ``Conclusion`` violates the rules we need
 /// to keep track of the state of the current chain

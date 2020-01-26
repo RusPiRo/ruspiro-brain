@@ -17,8 +17,9 @@ all32: kernel7
 kernel7:
 	cargo xbuild --target armv7-unknown-linux-gnueabihf --bin kernel --target-dir ./target/
 
+# -Zunstable-options --pretty=expanded
 all64: export CFLAGS = -march=armv8-a -Wall -O3 -nostdlib -nostartfiles -ffreestanding -mtune=cortex-a53
-all64: export RUSTFLAGS = -C linker=aarch64-elf-gcc -C target-cpu=cortex-a53 -C target-feature=+strict-align,+a53,+fp-armv8,+neon -C link-arg=-nostartfiles -C link-arg=-T./link64.ld -C opt-level=3
+all64: export RUSTFLAGS =  -C linker=aarch64-elf-gcc -C target-cpu=cortex-a53 -C target-feature=+strict-align,+a53,+fp-armv8,+neon -C link-arg=-nostartfiles -C link-arg=-T./link64.ld -C opt-level=3 -C debuginfo=2
 all64: export CC = aarch64-elf-gcc
 all64: export AR = aarch64-elf-ar
 all64: kernel8

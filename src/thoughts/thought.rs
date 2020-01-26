@@ -14,7 +14,6 @@ use crate::mpmc::Sender;
 use crate::thoughts::{wakeable::WakeAble, Thinkable};
 use alloc::{boxed::Box, sync::Arc};
 use core::pin::Pin;
-use ruspiro_console::*;
 use ruspiro_lock::DataLock;
 
 /// A [``Thought``] is the entity the brain can think on to come to a [``Conclusion``] or finish the
@@ -38,12 +37,10 @@ impl WakeAble for Thought {
         arc_self.spawner.send(cloned);
         /* TODO: use a more generic API here to remove inline assembly and architecture dependencies
            if possible
+        */
         // as waking might not have been done based on an IRQ or similar event there is a chance that
         // the cores keep "sleeping". So trigger an event to wake them up
         #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-        unsafe {
-            asm!("sev")
-        }
-        */
+        unsafe { asm!("sev") };
     }
 }

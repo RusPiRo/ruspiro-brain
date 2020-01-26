@@ -16,9 +16,10 @@ name = "kernel"
 path = "./src/kernel.rs"
 
 [dependencies]
-ruspiro-register = { path = "../../register" }
+#ruspiro-register = { path = "../../register" }
 ruspiro-allocator = { path = "../../allocator" }
 ruspiro-console = { path = "../../console" }
-ruspiro-timer = { path = "../../timer", features = ["ruspiro_pi3"] }
-ruspiro-brain = { path = "../", features = ["ruspiro_pi3"] }
-ruspiro-lock = { path = "../../lock" }
+#ruspiro-timer = { path = "../../timer", features = ["ruspiro_pi3"] }
+ruspiro-brain = { path = "../", features = ["ruspiro_pi3", "singlecore"] }
+#ruspiro-lock = { path = "../../lock" }
+#ruspiro-interrupt = { path = "../../interrupt", version = "0.3" }

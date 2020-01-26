@@ -11,6 +11,7 @@ use super::chain::*;
 use crate::thoughts::{Conclusion, Context, Thinkable};
 use core::pin::Pin;
 use pin_utils::unsafe_pinned;
+use ruspiro_console::*;
 
 /// Chain two [``Thinkable``]s in a way that we start thinking on the second one, once the first
 /// has been come to a conclusion. This combinator takes an existing ``Thinkable`` and uses the

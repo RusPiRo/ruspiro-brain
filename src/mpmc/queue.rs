@@ -12,6 +12,7 @@ use alloc::boxed::Box;
 use core::sync::atomic::{AtomicPtr, Ordering};
 use ruspiro_console::*;
 use ruspiro_lock::Spinlock;
+use ruspiro_console::*;
 
 /// Representation of an entry in the [Queue]
 #[derive(Debug)]
@@ -92,7 +93,9 @@ impl<T> Queue<T> {
     pub fn pop(&self) -> Pop<T> {
         // for the time beeing popping from the queue is not "lockfree". However, as this happens
         // only outside of an interrupt this might be fine
-        self.guard.aquire();
+        
+        //self.guard.aquire();
+        //info!("pop mpmc");
         let result = unsafe {
             // get the first "pop-able" node from the head and replace it with a dummy node
             // to ensure simultaneus "pop's" does not happen in a strange order
@@ -100,6 +103,7 @@ impl<T> Queue<T> {
             // if this operation finishes any other core that tries to pop a Node will get the
             // dummy Node
             let head = self.head.swap(dummy, Ordering::SeqCst);
+            //info!("swapped");
             //info!("swapped head {:#x?} - h {:#x?}", self.head, head);
             //let head = self.head.load(Ordering::Acquire);
             // this first entry is either the queue start marker/dummy node or the entry that has
@@ -110,6 +114,7 @@ impl<T> Queue<T> {
                 // move the head of the queue to the entry we are about to retrieve
                 // this will now let any other core see the new head, the dummy is gone
                 self.head.store(next, Ordering::Release);
+                //info!("stored");
 
                 let value = (*next).value.take().unwrap();
                 // we have stored a Box as rawpointer in the list
@@ -124,6 +129,7 @@ impl<T> Queue<T> {
                 // if we get here the current head does not have any next item, so the queue is actually
                 // empty, or does contain the dummy entry, so restore the original head entry
                 let dummy = self.head.swap(head, Ordering::SeqCst);
+                //info!("swapped back");
                 // destruct the dummy node to release the memory
                 let _: Box<Node<T>> = Box::from_raw(dummy);
                 // if the head and tail where the same the Queue was really empty, otherwise it was an
@@ -135,8 +141,7 @@ impl<T> Queue<T> {
                 }
             }
         };
-        self.guard.release();
-
+        //self.guard.release();
         result
     }
 }
