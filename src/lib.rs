@@ -50,6 +50,7 @@
 extern crate ruspiro_boot;
 extern crate alloc;
 
+pub use either::*;
 pub use ruspiro_brain_macros::*;
 pub use ruspiro_timer::{Mseconds, Useconds};
 

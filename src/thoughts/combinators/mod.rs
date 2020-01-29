@@ -18,3 +18,4 @@ mod map;
 pub use map::*;
 mod then;
 pub use then::*;
+mod either;

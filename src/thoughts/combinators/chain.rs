@@ -36,7 +36,7 @@ where
 
     pub(crate) fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<OUT::Output> {
         let this = unsafe { self.get_unchecked_mut() };
-        // This "loop" is actrually run only twice in case the initial state of the ``Chain`` is ``Inbound``.
+        // This "loop" is actually run only twice in case the initial state of the ``Chain`` is ``Inbound``.
         // It's here to ensure that we will think on the outbound ``Thought`` right after the inbound
         // one has come to a conclusion. Otherwise there would be nothing that would wake up the outbound
         // ``Thought`` and we would never think on it again. An alternative would have been to call
