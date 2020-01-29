@@ -12,9 +12,7 @@
 //! [``ruspiro-brain`` crate](https://crates.io/crates/ruspiro-brain).
 
 extern crate proc_macro;
-#[macro_use]
 extern crate quote;
-#[macro_use]
 extern crate syn;
 
 use proc_macro::*;
@@ -29,36 +27,43 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
     println!("implement WakeUpThought");
     // get the function this attribute is attached to
     let func = parse_macro_input!(item as ItemFn);
-    // TODO: check and warn that no attributes shall be passed with the attribute
+    // verify function signature
+    // do some verifications on this function to check if it's signature is valid
+    let valid_signature = func.abi.is_none()    // no "extern fn" used
+        && func.constness.is_none()             // no "const fn"
+        && func.vis == Visibility::Inherited    // a module private function
+        && func.decl.generics.params.is_empty() // no generics like "func<T>" supported as of now 
+        && func.decl.generics.where_clause.is_none() // also no where clause supported
+        && func.decl.variadic.is_none() // no variadic "func(...)" parameters supported
+        && match func.decl.output { // only default "()" return type allowed for the wakup thought
+            ReturnType::Default => true,
+            _ => false,
+        };
+    
+    if !valid_signature {
+        return syn::Error::new(
+            syn::export::Span::call_site(),
+            "Invalid signature given for 'WakeUpThought'. The decorated function has to be:\n-not const fn\n-private\n-non generic\n-non variadic\nand should have the default () return type!"
+        ).to_compile_error()
+        .into();
+    }
 
-    // get additional function attributes passed "#[...]"
-    let attrs = func.attrs;
-    // get the function block {...}
-    let block = func.block;
-    // get the statements of the function block
-    let stmts = block.stmts;
+    let name = syn::Ident::new(
+        &"WakeUpThinkable",
+        quote::__rt::Span::call_site(),
+    );
 
+    let thinkable_code = build_thinkable(&name, &func);
+    
+    let attrs = &func.attrs;
     // now generate the code that will than be used by the compiler to build this function
     quote!(
-        use core::pin::Pin;
-        // define the thinkable
-        struct WakeUpThinkable {}
-        // implement the ``Thinkable`` to allow thinking on the provided code
-        impl Thinkable for WakeUpThinkable {
-            type Output = ();
-            fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
-
-                #(#stmts)*
-
-                Conclusion::Ready(())
-            }
-        }
-
+        #thinkable_code
         // Define the function the ``Brain`` will call as entry point. This will spawn the WakeUpThinkable
         #(#attrs)*
         #[export_name = "__start_thinking__"]
         pub fn start_thinking() {
-            spawn(WakeUpThinkable{});
+            spawn(#name::new());
         }
     )
     .into()
@@ -89,104 +94,139 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     }
 
-    let ident = func.ident;  // name of the decorated function
-    let attrs = func.attrs;  // attributes of the function
-    let block = func.block;  // function body
-    let stmts = block.stmts; // statements of the function body
-    let inputs = func.decl.inputs;  // input parameter of the function
-    let output = func.decl.output; // return type of the function
-
-    let thinkable_name = syn::Ident::new(
-        &format!("{}_thinkable", ident.to_string()),
-        quote::__rt::Span::call_site()
+    let name = syn::Ident::new(
+        &format!("{}_thinkable", func.ident.to_string()),
+        quote::__rt::Span::call_site(),
     );
+    let thinkable_code = build_thinkable(&name, &func);
 
-    let mut input_idents = Vec::new();
-    let mut input_fields = Vec::new();
+    
+    //println!("Thinkable: {:#?}", thinkable_code);
+
+    /********* build the final output *********/
+    let attrs = &func.attrs;
+    let output = match &func.decl.output {
+        ReturnType::Type(_, ty) => quote!( #ty ),
+        ReturnType::Default => quote!{ () },
+    };
+    let inputs = &func.decl.inputs;
+    let mut thinkable_inputs = Vec::new();
     for input in inputs.iter() {
         match input {
             // get the identifier of all the function parameters
             FnArg::Captured(ArgCaptured {
                 pat: syn::Pat::Ident(syn::PatIdent { by_ref: None, ident , ..}),
-                ty,
                 ..
-            }) => {
-                input_idents.push(ident);
-                input_fields.push(quote!(#ident : #ty ));
-            },
+            }) => thinkable_inputs.push(ident),
+            _ => unimplemented!(),
+        }
+    };
+    let func_name = &func.ident;
+    let code = quote!(   
+        #thinkable_code
+             
+        #(#attrs)*
+        fn #func_name(#inputs) -> impl Thinkable<Output = #output> {
+            #name::new(#(#thinkable_inputs)*)
+        }
+    );
+    println!("Code: {:#?}", code);
+    code.into()
+}
+
+/// Build the code that defines the ``Thinkable`` and provides the required implementation to be 
+/// spawned at the ``Brain`` based on the decorated function.
+/// Basically it will convert:
+/// ```ignore
+/// #[Thinkable]
+/// fn function_name(param1: type) -> result { /* code omitted */ }
+/// ```
+/// into something like:
+/// ```ignore
+/// struct function_name_thinkable {
+///     param1: type,
+/// }
+/// 
+/// impl function_name_thinkable {
+///     fn new(param1: type) -> Self {
+///         Self {
+///             param1,
+///         }
+///     }
+/// }
+/// 
+/// impl Thinkable for function_name_thinkable {
+///     type Output = result;
+///     fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+///         /* code omitted */
+///     }
+/// }
+/// ```
+fn build_thinkable(name: &syn::Ident, func: &syn::ItemFn) -> quote::__rt::TokenStream {
+    // build the struct definition from the function that shall be spawn to the brain as thought
+    let thinkable_struct = build_thinkable_struct(name, &func.decl.inputs);
+    // build the struct implementation
+    let thinkable_struct_impl = build_thinkable_struct_impl(name, &func.decl.inputs);
+    // build the thinkable implementation
+    let thinkable_think_impl = build_thinkable_think_impl(name, &func);
+
+    quote!{
+        #thinkable_struct
+        #thinkable_struct_impl
+        #thinkable_think_impl
+    }
+}
+
+fn build_thinkable_struct(name: &syn::Ident, inputs: &punctuated::Punctuated<syn::FnArg, token::Comma>) -> quote::__rt::TokenStream {
+    quote!{
+        struct #name {
+            #inputs
+        }
+    }
+}
+
+fn build_thinkable_struct_impl(name: &syn::Ident, inputs: &punctuated::Punctuated<syn::FnArg, token::Comma>) -> quote::__rt::TokenStream {
+    let mut input_idents = Vec::new();
+    for input in inputs.iter() {
+        match input {
+            // get the identifier of all the function parameters
+            FnArg::Captured(ArgCaptured {
+                pat: syn::Pat::Ident(syn::PatIdent { by_ref: None, ident , ..}),
+                ..
+            }) => input_idents.push(ident),
             _ => unimplemented!(),
         }
     }
-
-    //println!("Input: {:#?}", inputs);
-    println!("Output: {:#?}", output);
-    println!("Stmts: {:#?}", stmts);
-
-    let struct_fields = &input_fields;
-    /********* create the structure carying the Thinkable 'context' given as input ******/
-    let thinkable_struct = quote!{
-        struct #thinkable_name {
-            #(#struct_fields)*
-        }
-    };
-
-    /******** create the structure implementation to create the Thinkable with the given 'context' 
-     *        values ******/
-    let new_fields = &inputs;
-    let struct_field_idents = &input_idents;
-    let thinkable_struct_impl = quote!{
-        impl #thinkable_name {
-            fn new(#new_fields) -> Self {
+    quote!{
+        impl #name {
+            fn new(#inputs) -> Self {
                 Self {
-                    #(#struct_field_idents)*
+                    #(#input_idents)*
                 }
             }
         }
+    }
+}
+
+fn build_thinkable_think_impl(name: &syn::Ident, func: &syn::ItemFn) -> quote::__rt::TokenStream {
+    let block = &func.block;
+    let stmts = &block.stmts;
+    let output = match &func.decl.output {
+        ReturnType::Type(_, ty) => quote!( #ty ),
+        ReturnType::Default => quote!{ () },
     };
 
-    /********* create the Thinkable implementation for this one *************/
-    let thinkable_output = match output {
-        ReturnType::Default => quote!(()),
-        //ReturnType::Type(_, syn::Path(syn::TypePath {path, ..})) => path.into(),
-        //ReturnType::Type(_, syn::Path(type_path)) => type_path.into(),
-        _ => unimplemented!(),
-    };
-
-    let thinkable_think_impl = quote!{
-        impl Thinkable for #thinkable_name {
-            type Output = #thinkable_output;
-            fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+    quote!{
+        impl Thinkable for #name {
+            type Output = #output;
+            fn think(self: core::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
                 
-                #(#stmts)*
+                let res = { 
+                    #(#stmts)*
+                };
 
-                Conclusion::Ready(())
+                Conclusion::Ready(res)
             }
         }
-    };
-
-    /******** create the function that will be used to create the thinkable and return it *******/
-    let func_inputs = &inputs;
-    let thinkable_inputs = &input_idents;
-    let thinkable_func = quote!{
-        #(#attrs)*
-        fn #ident(#func_inputs) -> impl Thinkable<Output = #thinkable_output> {
-            #thinkable_name::new(#(#thinkable_inputs)*)
-        }
-    };
-
-    println!("Struct: {:#?}", thinkable_struct);
-    println!("Impl: {:#?}", thinkable_struct_impl);
-    println!("Think: {:#?}", thinkable_think_impl);
-    println!("Func: {:#?}", thinkable_func);
-
-    /********* build the final output *********/
-    quote!(
-        #thinkable_struct
-
-        #thinkable_struct_impl
-
-        #thinkable_think_impl
-
-        #thinkable_func
-    ).into()
+    }
 }

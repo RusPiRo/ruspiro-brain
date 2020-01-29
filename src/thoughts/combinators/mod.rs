@@ -12,6 +12,8 @@ mod chain;
 
 mod ready;
 pub use ready::*;
+mod wait;
+pub use wait::*;
 mod map;
 pub use map::*;
 mod then;

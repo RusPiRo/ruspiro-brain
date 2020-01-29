@@ -10,9 +10,6 @@
 
 use alloc::boxed::Box;
 use core::sync::atomic::{AtomicPtr, Ordering};
-use ruspiro_console::*;
-use ruspiro_lock::Spinlock;
-use ruspiro_console::*;
 
 /// Representation of an entry in the [Queue]
 #[derive(Debug)]
@@ -43,7 +40,6 @@ pub struct Queue<T> {
     /// The tail of the [Queue] refers to the last node of the [Queue] new items can be [pushed]ed
     /// after
     tail: AtomicPtr<Node<T>>,
-    guard: Spinlock,
 }
 
 // The Queue is Send and Sync as it can be savely used accross cores
@@ -69,7 +65,6 @@ impl<T> Queue<T> {
         Queue {
             head: AtomicPtr::new(root),
             tail: AtomicPtr::new(root),
-            guard: Spinlock::new(),
         }
     }
 

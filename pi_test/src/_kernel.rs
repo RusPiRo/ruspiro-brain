@@ -227,7 +227,7 @@ fn timed_thinkable() {
 }
 
 #[WakeUpThought]
-fn wakeup() {
+fn wakeup() -> u32 {
     println!("awake...start tests");
     timed_thinkable();
 }

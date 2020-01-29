@@ -1,500 +1,556 @@
 cargo xbuild --target aarch64-unknown-linux-gnu --bin kernel --target-dir ./target/
 implement WakeUpThought
+Stmts: [
+    Local(
+        Local {
+            attrs: [],
+            let_token: Let,
+            pats: [
+                Wild(
+                    PatWild {
+                        underscore_token: Underscore,
+                    },
+                ),
+            ],
+            ty: None,
+            init: Some(
+                (
+                    Eq,
+                    Call(
+                        ExprCall {
+                            attrs: [],
+                            func: Path(
+                                ExprPath {
+                                    attrs: [],
+                                    qself: None,
+                                    path: Path {
+                                        leading_colon: None,
+                                        segments: [
+                                            PathSegment {
+                                                ident: Ident {
+                                                    ident: "some_thinking",
+                                                    span: #0 bytes(175..188),
+                                                },
+                                                arguments: None,
+                                            },
+                                        ],
+                                    },
+                                },
+                            ),
+                            paren_token: Paren,
+                            args: [
+                                Lit(
+                                    ExprLit {
+                                        attrs: [],
+                                        lit: Int(
+                                            LitInt {
+                                                token: Literal { lit: Lit { kind: Integer, symbol: "100", suffix: None }, span: Span { lo: BytePos(189), hi: BytePos(192), ctxt: #0 } },
+                                            },
+                                        ),
+                                    },
+                                ),
+                            ],
+                        },
+                    ),
+                ),
+            ),
+            semi_token: Semi,
+        },
+    ),
+]
 implement Thinkable
-Code: TokenStream [
+Output: Type(
+    RArrow,
+    Path(
+        TypePath {
+            qself: None,
+            path: Path {
+                leading_colon: None,
+                segments: [
+                    PathSegment {
+                        ident: Ident {
+                            ident: "u32",
+                            span: #0 bytes(283..286),
+                        },
+                        arguments: None,
+                    },
+                ],
+            },
+        },
+    ),
+)
+Struct: TokenStream [
     Ident {
         ident: "struct",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "some_thinking_thinkable",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Group {
         delimiter: Brace,
         stream: TokenStream [
             Ident {
                 ident: "max",
-                span: #0 bytes(338..341),
+                span: #0 bytes(270..273),
             },
             Punct {
                 ch: ':',
                 spacing: Alone,
-                span: #0 bytes(341..342),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "u32",
-                span: #0 bytes(343..346),
+                span: #0 bytes(275..278),
             },
         ],
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
+]
+Impl: TokenStream [
     Ident {
         ident: "impl",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "some_thinking_thinkable",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Group {
         delimiter: Brace,
         stream: TokenStream [
             Ident {
                 ident: "fn",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "new",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
                     Ident {
                         ident: "max",
-                        span: #0 bytes(338..341),
+                        span: #0 bytes(270..273),
                     },
                     Punct {
                         ch: ':',
                         spacing: Alone,
-                        span: #0 bytes(341..342),
+                        span: #0 bytes(273..274),
                     },
                     Ident {
                         ident: "u32",
-                        span: #0 bytes(343..346),
+                        span: #0 bytes(275..278),
                     },
                 ],
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '-',
                 spacing: Joint,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '>',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "Self",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Group {
                 delimiter: Brace,
                 stream: TokenStream [
                     Ident {
                         ident: "Self",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Group {
                         delimiter: Brace,
                         stream: TokenStream [
                             Ident {
                                 ident: "max",
-                                span: #0 bytes(338..341),
+                                span: #0 bytes(270..273),
                             },
                         ],
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                 ],
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
         ],
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
+]
+Think: TokenStream [
     Ident {
         ident: "impl",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "Thinkable",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "for",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "some_thinking_thinkable",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Group {
         delimiter: Brace,
         stream: TokenStream [
             Ident {
                 ident: "type",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "Output",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '=',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "u32",
-                span: #0 bytes(351..354),
+                span: #0 bytes(283..286),
             },
             Punct {
                 ch: ';',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "fn",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "think",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
                     Ident {
                         ident: "self",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: ':',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
-                    },
-                    Ident {
-                        ident: "core",
-                        span: #21 bytes(308..320),
-                    },
-                    Punct {
-                        ch: ':',
-                        spacing: Joint,
-                        span: #21 bytes(308..320),
-                    },
-                    Punct {
-                        ch: ':',
-                        spacing: Alone,
-                        span: #21 bytes(308..320),
-                    },
-                    Ident {
-                        ident: "pin",
-                        span: #21 bytes(308..320),
-                    },
-                    Punct {
-                        ch: ':',
-                        spacing: Joint,
-                        span: #21 bytes(308..320),
-                    },
-                    Punct {
-                        ch: ':',
-                        spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "Pin",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '<',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '&',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "mut",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "Self",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '>',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: ',',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "cx",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: ':',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '&',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "mut",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "Context",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '<',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '\'',
                         spacing: Joint,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "_",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '>',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                 ],
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '-',
                 spacing: Joint,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '>',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "Conclusion",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '<',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "Self",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: ':',
                 spacing: Joint,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: ':',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "Output",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: '>',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Group {
                 delimiter: Brace,
                 stream: TokenStream [
                     Ident {
                         ident: "let",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "res",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: '=',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Group {
                         delimiter: Brace,
                         stream: TokenStream [
                             Ident {
                                 ident: "info",
-                                span: #0 bytes(361..365),
+                                span: #0 bytes(293..297),
                             },
                             Punct {
                                 ch: '!',
                                 spacing: Alone,
-                                span: #0 bytes(365..366),
+                                span: #0 bytes(297..298),
                             },
                             Group {
                                 delimiter: Parenthesis,
                                 stream: TokenStream [
-                                    Literal { lit: Lit { kind: Str, symbol: "thinking on something", suffix: None }, span: Span { lo: BytePos(367), hi: BytePos(390), ctxt: #0 } },
+                                    Literal { lit: Lit { kind: Str, symbol: "thinking on counting", suffix: None }, span: Span { lo: BytePos(299), hi: BytePos(321), ctxt: #0 } },
                                 ],
-                                span: #0 bytes(366..391),
+                                span: #0 bytes(298..322),
                             },
                             Punct {
                                 ch: ';',
                                 spacing: Alone,
-                                span: #0 bytes(391..392),
+                                span: #0 bytes(322..323),
                             },
-                            Literal { lit: Lit { kind: Integer, symbol: "100", suffix: None }, span: Span { lo: BytePos(397), hi: BytePos(400), ctxt: #0 } },
+                            Literal { lit: Lit { kind: Integer, symbol: "100", suffix: None }, span: Span { lo: BytePos(328), hi: BytePos(331), ctxt: #0 } },
                         ],
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: ';',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "Conclusion",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: ':',
                         spacing: Joint,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Punct {
                         ch: ':',
                         spacing: Alone,
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Ident {
                         ident: "Ready",
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                     Group {
                         delimiter: Parenthesis,
                         stream: TokenStream [
                             Ident {
                                 ident: "res",
-                                span: #21 bytes(308..320),
+                                span: #7 bytes(240..252),
                             },
                         ],
-                        span: #21 bytes(308..320),
+                        span: #7 bytes(240..252),
                     },
                 ],
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
         ],
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
+]
+Func: TokenStream [
     Ident {
         ident: "fn",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "some_thinking",
-        span: #0 bytes(324..337),
+        span: #0 bytes(256..269),
     },
     Group {
         delimiter: Parenthesis,
         stream: TokenStream [
             Ident {
                 ident: "max",
-                span: #0 bytes(338..341),
+                span: #0 bytes(270..273),
             },
             Punct {
                 ch: ':',
                 spacing: Alone,
-                span: #0 bytes(341..342),
+                span: #0 bytes(273..274),
             },
             Ident {
                 ident: "u32",
-                span: #0 bytes(343..346),
+                span: #0 bytes(275..278),
             },
         ],
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Punct {
         ch: '-',
         spacing: Joint,
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Punct {
         ch: '>',
         spacing: Alone,
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "impl",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "Thinkable",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Punct {
         ch: '<',
         spacing: Alone,
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "Output",
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Punct {
         ch: '=',
         spacing: Alone,
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Ident {
         ident: "u32",
-        span: #0 bytes(351..354),
+        span: #0 bytes(283..286),
     },
     Punct {
         ch: '>',
         spacing: Alone,
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
     Group {
         delimiter: Brace,
         stream: TokenStream [
             Ident {
                 ident: "some_thinking_thinkable",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: ':',
                 spacing: Joint,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Punct {
                 ch: ':',
                 spacing: Alone,
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Ident {
                 ident: "new",
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
             Group {
                 delimiter: Parenthesis,
                 stream: TokenStream [
                     Ident {
                         ident: "max",
-                        span: #0 bytes(338..341),
+                        span: #0 bytes(270..273),
                     },
                 ],
-                span: #21 bytes(308..320),
+                span: #7 bytes(240..252),
             },
         ],
-        span: #21 bytes(308..320),
+        span: #7 bytes(240..252),
     },
 ]
-cargo objcopy -- -O binary .\\target\\aarch64-unknown-linux-gnu\\debug\\kernel .\\target\\kernel8.img
+makefile:29: recipe for target 'kernel8' failed

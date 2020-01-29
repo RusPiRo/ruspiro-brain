@@ -51,6 +51,7 @@ extern crate ruspiro_boot;
 extern crate alloc;
 
 pub use ruspiro_brain_macros::*;
+pub use ruspiro_timer::{Mseconds, Useconds};
 
 use ruspiro_interrupt::*;
 use ruspiro_singleton::Singleton;
@@ -58,7 +59,6 @@ use ruspiro_singleton::Singleton;
 mod brain;
 use brain::*;
 pub mod mpmc;
-
 
 mod thoughts;
 pub use thoughts::*;
