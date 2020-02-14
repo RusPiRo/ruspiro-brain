@@ -1,0 +1,17 @@
+[package]
+name = "test"
+authors = ["André Borrmann <pspwizard@gmx.de>"]
+version = "0.1.0"
+edition = "2018"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "test"
+path = "./src/main.rs"
+
+[dependencies]
+ruspiro-allocator = { path = "../../allocator" }
+ruspiro-brain = { path = "../", features = ["ruspiro_pi3", "singlecore"] }
+ruspiro-console = { path = "../../console" }

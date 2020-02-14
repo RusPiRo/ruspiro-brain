@@ -12,12 +12,13 @@
 //! [``ruspiro-brain`` crate](https://crates.io/crates/ruspiro-brain).
 
 extern crate proc_macro;
+extern crate proc_macro2;
 extern crate quote;
 extern crate syn;
 
-use proc_macro::*;
+use proc_macro::TokenStream;
 use quote::quote;
-use syn::*;
+use syn::{*, visit::*};
 
 /// Provide the Attribute ``#[WakeUpThought]`` to be used to define the initial ``Thinkable`` the
 /// ``Brain`` will think on as soon as beeing alive.
@@ -98,6 +99,108 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
         &format!("{}_thinkable", func.ident.to_string()),
         quote::__rt::Span::call_site(),
     );
+
+    let inputs = &func.decl.inputs;
+    let output = match &func.decl.output {
+        ReturnType::Type(_, ty) => quote!( #ty ),
+        ReturnType::Default => quote!{ () },
+    };
+    let block = &func.block;
+    let stmts = &block.stmts;
+
+    let mut test = ThinkableFunctionBody{ state: HashMap::new() };
+    test.visit_block(block);
+    // the thinkable function will be compiled into an enum containing as many enum variants as the
+    // thinkable has "await" states + 1 initial and 1 final one.
+    // all states carries all the arguments that has been passed to the thinkable function
+    // each state also carries the result of the previous awaited thinkable if any as well as the
+    // actual thinkable that shall be thought off at this state
+    let thinkable_enum = quote!{
+        enum #name {
+            /// The initial state of the thinkable function if nothing has been thought of yet. If the
+            /// function does not contain any further "await" points this is the only state we get
+            State0{#inputs},
+            Final(#output),
+            /// Empty state to ensure previous stored states are properly dropped at state transition
+            Empty,
+        }
+    };
+
+    // the enum representing the thinkable function always comes with the "new" function to create the
+    // initial state and pass all function arguments into it
+    let mut enum_state0_inputs = Vec::new();
+    for input in inputs.iter() {
+        match input {
+            // get the identifier of all the function arguments
+            FnArg::Captured(ArgCaptured {
+                pat: syn::Pat::Ident(syn::PatIdent { by_ref: None, ident , ..}),
+                ..
+            }) => enum_state0_inputs.push(ident),
+            _ => unimplemented!(),
+        }
+    };
+
+    let enum_inputs = &enum_state0_inputs;
+    let enum_impl = quote!{
+        impl #name {
+            pub fn new(#inputs) -> Self {
+                Self::State0 {
+                    #(#enum_inputs),*
+                }
+            }
+        }
+    };
+
+    // the thinkable functions thinkable implementation is able to transition from the initial state
+    // to the final one. While in transition phase it's always "Pending" and the individual "sub"-
+    // thinkables need to register the provided wakre to get waken when progress is possible to make
+    let thinkable_impl = quote!{
+        impl Thinkable for #name {
+            type Output = #output;
+            fn think(self: core::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+                let this = unsafe { self.get_unchecked_mut() };
+                loop {
+                    // this loop covers the case where each underlying thinkable immediately returns a
+                    // conclusion as in this scenario no waker would be registered to wake this thinkable
+                    // again
+                    let next = match this {
+                        // each state got a proper implementation here. This mean we process the original
+                        // code of the funtion till we either reach the end or another "await" point which
+                        // would mean we need to switch the state and provide the proper data for it
+                        Self::State0{#(#enum_inputs),*} => {
+                            // put the original code of the function here until we hit another awaiting
+                            // point. If this is the case -> think on it and continue based on it's
+                            // conclusion state
+                            // For the time beeing: no await point expected, so just take the code as is
+                            // end create the final state as the next state with the respective output
+                            let conclusion = {
+                                #(#stmts)*
+                            };
+                            Self::Final(conclusion)
+                        },
+
+                        // the final state just returns the conclusion result
+                        Self::Final(conclusion) => return Conclusion::Ready(conclusion),
+                        // we should never reach here with the empty state beeing active
+                        Self::Empty => unimplemented!(),
+                    };
+                    // switch the state
+                    *this = Self::Empty;
+                    *this = next;
+                }
+            }
+        } 
+    };
+
+    let final_code = quote!{
+        #thinkable_enum
+        #enum_impl
+        #thinkable_impl
+    };
+
+    final_code.into()
+
+/*    
     let thinkable_code = build_thinkable(&name, &func);
 
     
@@ -130,8 +233,8 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
             #name::new(#(#thinkable_inputs)*)
         }
     );
-    println!("Code: {:#?}", code);
     code.into()
+    */
 }
 
 /// Build the code that defines the ``Thinkable`` and provides the required implementation to be 
@@ -228,5 +331,72 @@ fn build_thinkable_think_impl(name: &syn::Ident, func: &syn::ItemFn) -> quote::_
                 Conclusion::Ready(res)
             }
         }
+    }
+}
+
+use std::collections::HashMap;
+
+/// struct representing the logical code block of a thinkeable function state
+struct ThinkableStateBody<'a> {
+    /// the statements coming from the original thinkable function body comprosing this state's
+    /// logic
+    stmts: Vec<&'a Stmt>,
+}
+
+struct ThinkableFunctionBody<'a> {
+    state: HashMap<String, ThinkableStateBody<'a>>,
+    state_num: u32,
+}
+
+impl<'a> Visit<'a> for ThinkableFunctionBody<'a> {
+    /// while visiting the statements of the thinkable function body we can prepare how this will be
+    /// translated into the thinkable "state-machine"
+    fn visit_stmt(&mut self, s: &'a Stmt) {
+        println!("visit: {:#?}", s);
+
+        let stateId = format!("State{}", self.state_num);
+        if self.state.get_mut(&stateId.to_string()).is_none() {
+            self.state.insert(stateId.to_string(), ThinkableStateBody { stmts: Vec::new() });
+        }
+
+        // check what this statement is about to properly handle the code generation for the state
+        // machine
+        match s {
+            // an expression without a semicolon, this is usually one that will provide the result
+            // of the function if it is the last expression
+            Stmt::Expr(expr) => {
+                println!("found expression");
+            },
+            // an expression with semicolon, this could be eg. a function/method call awaiting a thinkable
+            Stmt::Semi(expr, token) => {
+                println!("found semi-colon expression");
+                match expr {
+                    // an "foo.await;" is represented as Field expression where the Member is "await"
+                    Expr::Field( ExprField {
+                        dot_token: Dot, //Token![.],
+                        member: Member::Named(
+                            proc_macro2::Ident {
+                                ident: "await",
+                                ..
+                            }
+                        ),
+                        ..
+                    }) => {
+                        println!("found await call");
+                    },
+                    Expr::Call(binding) => {
+
+                    },
+                    _ => (),
+                }
+            },
+            _ => ()
+        };
+
+        if let Some(state) = self.state.get_mut(&"State0".to_string()) {
+            state.stmts.push(s);
+        }
+
+        visit_stmt(self, s);
     }
 }
