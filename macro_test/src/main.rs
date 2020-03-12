@@ -10,3 +10,18 @@ fn simple() {
     let b = a + 5;
     //info!("thought on simple()");
 }
+
+#[Thinkable]
+fn simple_stages() {
+    let a = 10;
+    wait(Mseconds(100), ()).await;
+    let b = a + 5;
+    wait(Mseconds(300), ()).await;
+}
+
+#[export_name = "__start_thinking__"]
+pub fn start_thinking() {
+    spawn(
+        simple()
+    );
+}

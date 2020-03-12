@@ -144,8 +144,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruspiro-core"
+version = "0.1.0"
+dependencies = [
+ "pin-utils",
+ "ruspiro-console",
+]
+
+[[package]]
 name = "ruspiro-gpio"
-version = "0.4.1"
+version = "0.4.0"
 dependencies = [
  "ruspiro-interrupt",
  "ruspiro-register",
@@ -212,10 +220,12 @@ dependencies = [
 
 [[package]]
 name = "ruspiro-uart"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "ruspiro-console",
+ "ruspiro-core",
  "ruspiro-gpio",
+ "ruspiro-interrupt",
  "ruspiro-register",
  "ruspiro-timer",
 ]
