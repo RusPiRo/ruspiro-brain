@@ -4,7 +4,7 @@ use ruspiro_allocator::*;
 use ruspiro_brain::*;
 use ruspiro_console::*;
 
-#[Thinkable]
+//#[Thinkable]
 fn simple() {
     let a = 10;
     let b = a + 5;
@@ -13,10 +13,11 @@ fn simple() {
 
 #[Thinkable]
 fn simple_stages() {
-    let a = 10;
-    wait(Mseconds(100), ()).await;
-    let b = a + 5;
-    wait(Mseconds(300), ()).await;
+    //let mut a = 10;
+    //a += 5;
+    let b = wait(Mseconds(100), a + 5).await;
+    //let c = b*2 / a;
+    //wait(Mseconds(300), ()).await;
 }
 
 #[export_name = "__start_thinking__"]

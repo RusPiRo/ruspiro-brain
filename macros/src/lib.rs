@@ -282,7 +282,7 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     //println!("States: {:#?}", function_states);
     //let states_stmts: Vec<(String, FunctionStateBody)> = function_states.states.into_iter().collect();
-    let mut states = Vec::new();
+    let mut state_branch = Vec::new();
     let mut stmts = Vec::new();
     // from the HashMap create two arrays one with the state as identifier
     // and one with the corresponding statements
@@ -290,54 +290,72 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     let call_states: Vec<((u32, FunctionStateBody<'_>), usize)> = function_states.states.into_iter().zip(0..size).collect();
     
     for ((key, value), index) in &call_states { //function_states.states.iter().clone() {
-        states.push(syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site()));
-        let value_stmts = &value.stmts;
-        
-        if (index + 1) < call_states.len() {
-            let ((_, next_value), _) = &call_states[index + 1];
-            if let Some(await_call) = next_value.await_call {
-                let statename = syn::Ident::new(&format!("State_{}", key + 1), quote::__rt::Span::call_site());
-                stmts.push(
-                    quote!(
-                        #statename(
-                            Box::pin(
-                                #await_call
-                            )
-                        )
-                    )
-                );
-            }
-        }
-        /*if let Some(next_state) = function_states.states.get(&(key + 1)) {
-            if let Some(await_call) = next_state.await_call {
-                let statename = syn::Ident::new(&format!("State_{}", key + 1), quote::__rt::Span::call_site());
-                stmts.push(
-                    quote!(
-                        #statename(
-                            Box::pin(
-                                #await_call
-                            )
-                        )
-                    )
-                );
-            }
-        }*/
-
-        // if this is the final state add the return statement that will conclude the Thinkable
-        // with the final calculated value
-        if key == &function_states.current_state {
-            stmts.push(
-                quote!(
-                    #(#value_stmts)*
-                    return Conclusion::Ready(()))
+        // create the match branch name 
+        let branch_name = syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site());
+        // only the first match branch does not contain a Thinkable to wait for,
+        // all other states refer to a THinkable they need to wait for before the state continues processing
+        // the contained body...
+        if *index == 0 {
+            state_branch.push(
+                quote!(Self::#branch_name())
             );
         } else {
-            stmts.push(
-                quote!(#(#value_stmts)*)
+            state_branch.push(
+                quote!(Self::#branch_name(wait_for))
             );
         }
-    };
+        // prepare the statements that shall be used within this state
 
+        // the statements of the original body that shall be run as part of this state
+        let value_stmts = &value.stmts;
+        let body_stmts = quote!(#(#value_stmts)*);
+        // the statements that either return the final conclusion or transition to the next state as
+        // there was another await point in the original body
+        let next_state_stmts = if (index + 1) == call_states.len() {
+            // the last state returns the final conclusion all is done...
+            // TODO: return the conclusion value
+            quote!( return Conclusion::Ready(state_result))
+        } else {
+            // intermediate states will lead to a new state with the new Thinkable we are waiting for
+            let ((_, next_value),_) = &call_states[index + 1];
+            if let Some(await_call) = next_value.await_call {
+                // create the name of the next state we will be in when waiting for this thinkable
+                let statename = syn::Ident::new(&format!("State_{}", key + 1), quote::__rt::Span::call_site());
+                quote!(
+                    Self::#statename(
+                        std::boxed::Box::pin(
+                            #await_call
+                        )
+                    )
+                )
+            } else {
+                quote!()
+            }
+        };
+        // if this state was not the initial one we need to check if the Thinkable we are waiting for has come
+        // to a conclusion
+        let state_stmts = if *index > 0 {
+            quote!(
+                match wait_for.as_mut().think(cx) {
+                    // the Thinkable we wait for is still not ready, so no progress here
+                    Conclusion::Pending => return Conclusion::Pending,
+                    // the Thinkable we wait for has come to a conclusion -> continue with this state
+                    Conclusion::Ready(result) => {
+                        #body_stmts
+                        #next_state_stmts
+                    }
+                }
+
+            )
+        } else {
+            quote!(
+                #body_stmts
+                #next_state_stmts
+            )
+        };
+
+        stmts.push(state_stmts);
+    };
     // println!("Stmts: {:#?}", stmts);
     // finally generate the implementation of the 'think' function of the
     // Thinkable trait
@@ -353,7 +371,7 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
                 loop {
                     let next = match this {
                         #(
-                            Self::#states() => {
+                            #state_branch => {
                                 #stmts
                             }
                         ),*
@@ -423,7 +441,6 @@ impl<'a> FunctionStates<'a> {
     }
 
     fn add_state(&mut self, await_call: Option<&'a Expr>) {
-        //let state_id = format!("State_{}", self.current_state);
         self.states.insert(
             self.current_state, //state_id.to_string(),
             FunctionStateBody { stmts: Vec::new(), await_call }
@@ -433,12 +450,6 @@ impl<'a> FunctionStates<'a> {
     fn add_statement(&mut self, stmt: &'a Stmt) {
         // check if we do have an entry in the hashmapfor the current state
         //let state_id = format!("State_{}", self.current_state);
-        /*if self.states.get_mut(&state_id.to_string()).is_none() {
-            self.states.insert(
-                state_id.to_string(),
-                FunctionStateBody { stmts: Vec::new(), await_call });
-        };
-        */
         if let Some(state) = self.states.get_mut(&self.current_state) {
             state.stmts.push(stmt);
         }
@@ -447,6 +458,21 @@ impl<'a> FunctionStates<'a> {
 
 /// implement the ``Visit``or trait to be able to parse the function body
 impl<'a> Visit<'a> for FunctionStates<'a> {
+    fn visit_expr_let(&mut self, i: &'a ExprLet) {
+        println!("LET: {:#?}", i);
+        visit_expr_let(self, i)
+    }
+
+    fn visit_expr_call(&mut self, i: &'a ExprCall) {
+        println!("CALL: {:#?}", i);
+        visit_expr_call(self, i)
+    }
+
+    fn visit_expr_binary(&mut self, i: &'a ExprBinary) {
+        println!("BINARY: {:#?}", i);
+        visit_expr_binary(self, i)
+    }
+
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
 
         // we need to check for a statement that indicates that we need to generate a new state
@@ -465,8 +491,7 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                             ..
                         }
                     ) if ident.to_string() == "await" => {
-                        // TODO: Special treatment here
-                        println!("{:#?}", base);
+                        //println!("{:#?}", base);
                         // detected an await position, increase the state number, everything
                         // after this point goes to the next state
                         self.current_state += 1;
@@ -475,7 +500,10 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                     _ => self.add_statement(stmt),
                 }
             },
-            _ => self.add_statement(stmt),
+            _ => {
+                // println!("{:#?}", stmt);
+                self.add_statement(stmt);
+            },
         }
 
         // continue visiting the AST
