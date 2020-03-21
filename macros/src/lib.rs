@@ -416,6 +416,12 @@ struct FunctionStateBody<'a> {
     stmts: Vec<&'a Stmt>,
 }
 
+#[derive(Debug)]
+struct StmtMetadata<'a> {
+    isAwait: bool,
+    await_call: Option<&'a Expr>,
+}
+
 /// struct used to visit the original function body of the function to be treateed as 
 /// ``Thinkable`` that stores the states this function will run through
 #[derive(Debug)]
@@ -424,8 +430,10 @@ struct FunctionStates<'a> {
     states: BTreeMap<u32, FunctionStateBody<'a>>,
     /// the current state
     current_state: u32,
-
-    statements: Vec<Stmt>,
+    /// the metadata of the current statement that is visited
+    /// to decide what to do after it has been parsed
+    current_stmt_meta: Option<StmtMetadata<'a>>,
+    tmp_stmt: Vec<Stmt>,
 }
 
 impl<'a> FunctionStates<'a> {
@@ -433,7 +441,8 @@ impl<'a> FunctionStates<'a> {
         let mut state = Self {
             states: BTreeMap::new(),
             current_state: 0,
-            statements: Vec::new(),
+            current_stmt_meta: None,
+            tmp_stmt: Vec::new(),
         };
         state.add_state(None);
         
@@ -442,14 +451,13 @@ impl<'a> FunctionStates<'a> {
 
     fn add_state(&mut self, await_call: Option<&'a Expr>) {
         self.states.insert(
-            self.current_state, //state_id.to_string(),
+            self.current_state,
             FunctionStateBody { stmts: Vec::new(), await_call }
         );
     }
 
     fn add_statement(&mut self, stmt: &'a Stmt) {
-        // check if we do have an entry in the hashmapfor the current state
-        //let state_id = format!("State_{}", self.current_state);
+        // check if we do have an entry in the hashmap for the current state
         if let Some(state) = self.states.get_mut(&self.current_state) {
             state.stmts.push(stmt);
         }
@@ -458,6 +466,35 @@ impl<'a> FunctionStates<'a> {
 
 /// implement the ``Visit``or trait to be able to parse the function body
 impl<'a> Visit<'a> for FunctionStates<'a> {
+    /// visit an expression field - this is whenever a ".await" happened
+    fn visit_expr_field(&mut self, expr: &'a ExprField) {
+        // as the statement is always visited before the expression the meta data
+        // is always available
+        let mut stmt_meta = self.current_stmt_meta.take().unwrap();
+
+        match expr {
+            ExprField {
+                base,
+                dot_token: Dot,
+                member: Member::Named(ref ident),
+                ..
+            } if ident.to_string() == "await" => {
+                println!("found await point as part of the statement");
+                stmt_meta.isAwait = true;
+                stmt_meta.await_call = Some(base);
+            },
+            _ => ()
+        }
+
+        self.current_stmt_meta.replace(stmt_meta);
+
+        visit_expr_field(self, expr)
+    }
+    /*fn visit_expr(&mut self, e: &'a Expr) {
+        println!("EXPR: {:#?}", e);
+        visit_expr(self, e)
+    }*/
+/*
     fn visit_expr_let(&mut self, i: &'a ExprLet) {
         println!("LET: {:#?}", i);
         visit_expr_let(self, i)
@@ -472,16 +509,19 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
         println!("BINARY: {:#?}", i);
         visit_expr_binary(self, i)
     }
-
+*/
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
+        // whenever we visit a new statement we initialize the current metadata
+        self.current_stmt_meta.replace(StmtMetadata { isAwait: false, await_call: None });
 
+        /*
         // we need to check for a statement that indicates that we need to generate a new state
         // for the Thinkable we are about to generate. This is the Rust standard keyword "await"
         // in an expression similar to 'foo().await;'
         match stmt {
+             // an expression followed by a semicolon is a good candidate
+            // now check the inner type of the same
             Stmt::Semi(expr, semi) => {
-                // an expression followed by a semicolon is a good candidate
-                // now check the inner type of the same
                 match expr {
                     Expr::Field(
                         ExprField {
@@ -500,13 +540,42 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                     _ => self.add_statement(stmt),
                 }
             },
+            // this is an local variable assignment. we need to check if this contains an await assignment
+            // if this is the case we have a new state where the new state will work with value concluded in this
+            // await point
+            Stmt::Local(_) => println!("visit Stmt::Local"),
             _ => {
                 // println!("{:#?}", stmt);
+                println!("visit Stmt::*");
                 self.add_statement(stmt);
             },
         }
+        */
 
         // continue visiting the AST
         visit_stmt(self, stmt);
+        
+        // if this statement has been visited, we know how to treat it
+        let stmt_meta = self.current_stmt_meta.take().unwrap();
+        if stmt_meta.isAwait {
+            // detected an await position, increase the state number, everything
+            // after this point goes to the next state
+            self.current_state += 1;
+            self.add_state(stmt_meta.await_call);
+            // in case the result of the awaited call was assigned to a local to 
+            // use it in subsequent statements we need to add this part as the first statement
+            // in the new state. The concluded value is available as "result"
+            match stmt {
+                Stmt::Local(local) => {
+                    println!("assignment for awaited stmt found");
+                    let assignment = quote!(let test = result;);
+                    self.tmp_stmt.push(syn::parse2(assignment).unwrap());
+                    self.add_statement(&self.tmp_stmt.last().unwrap());
+                }
+                _ => ()
+            }
+        } else {
+            self.add_statement(stmt);
+        }
     }
 }
