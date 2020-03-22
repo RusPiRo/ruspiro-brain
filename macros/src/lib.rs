@@ -239,14 +239,32 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     function_states.visit_block(block);
 
     // generate the enum based on the states we got
-    let states = function_states.states.keys().map(|key| {
-        syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site())
-    });
+    let mut state_names = Vec::new();
+    let mut state_signature = Vec::new();
+    for (key, value) in function_states.states.iter() {
+        state_names.push(
+            syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site())
+        );
+
+        if *key == 0 {
+            state_signature.push(
+                quote!( () )
+            );
+        } else {
+            let state_locals = &value.locals;
+            state_signature.push(
+                quote!(
+                    { wait_for: core::pin::Pin<alloc::boxed::Box<dyn Thinkable<Output = ()>>>,
+                      #(#state_locals),*
+                    })
+            )
+        }
+    }
 
     let enum_definition = quote!{
         #[allow(non_camel_case_types)]
         enum #name {
-            #(#states()),*,
+            #(#state_names #state_signature),*,
             Empty,
         }
     };
@@ -323,7 +341,7 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let statename = syn::Ident::new(&format!("State_{}", key + 1), quote::__rt::Span::call_site());
                 quote!(
                     Self::#statename(
-                        std::boxed::Box::pin(
+                        alloc::boxed::Box::pin(
                             #await_call
                         )
                     )
@@ -341,7 +359,9 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Conclusion::Pending => return Conclusion::Pending,
                     // the Thinkable we wait for has come to a conclusion -> continue with this state
                     Conclusion::Ready(result) => {
-                        #body_stmts
+                        let state_result = {
+                            #body_stmts
+                        };
                         #next_state_stmts
                     }
                 }
@@ -385,6 +405,18 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
+    // define the structure containing the function bodies local variables
+    let locals_name = syn::Ident::new(
+        &format!("{}_thinkable_locals", func.ident.to_string()), func.ident.span()
+    );
+    let locals_def = &function_states.local_defs;
+    //println!("local defs: {:#?}", locals_def);
+    let thinkable_locals = quote!(
+        struct #locals_name {
+            #(#locals_def),*
+        }
+    );
+
     // last but no least implement the function that will return the Thinkable
     let func_name = &func.ident;
     let attrs = &func.attrs;
@@ -413,7 +445,12 @@ struct FunctionStateBody<'a> {
     await_call: Option<&'a Expr>,
     /// the statements coming from the original thinkable function body comprising
     /// it's states logic
-    stmts: Vec<&'a Stmt>,
+    //stmts: Vec<&'a Stmt>,
+    stmts: Vec<Stmt>,
+    /// the list of local definitions of the current state that might need to be 
+    /// passed onto the next state
+    locals: Vec<FieldValue>,
+    _p: core::marker::PhantomData<&'a Stmt>,
 }
 
 #[derive(Debug)]
@@ -433,7 +470,7 @@ struct FunctionStates<'a> {
     /// the metadata of the current statement that is visited
     /// to decide what to do after it has been parsed
     current_stmt_meta: Option<StmtMetadata<'a>>,
-    tmp_stmt: Vec<Stmt>,
+    local_defs: Vec<FieldValue>,
 }
 
 impl<'a> FunctionStates<'a> {
@@ -442,7 +479,7 @@ impl<'a> FunctionStates<'a> {
             states: BTreeMap::new(),
             current_state: 0,
             current_stmt_meta: None,
-            tmp_stmt: Vec::new(),
+            local_defs: Vec::new(),
         };
         state.add_state(None);
         
@@ -452,20 +489,37 @@ impl<'a> FunctionStates<'a> {
     fn add_state(&mut self, await_call: Option<&'a Expr>) {
         self.states.insert(
             self.current_state,
-            FunctionStateBody { stmts: Vec::new(), await_call }
+            FunctionStateBody { 
+                stmts: Vec::new(),
+                locals: Vec::new(),
+                await_call, 
+                _p: core::marker::PhantomData
+            }
         );
     }
 
-    fn add_statement(&mut self, stmt: &'a Stmt) {
+    //fn add_statement(&mut self, stmt: &'a Stmt) {
+    fn add_statement(&mut self, stmt: Stmt) {
         // check if we do have an entry in the hashmap for the current state
         if let Some(state) = self.states.get_mut(&self.current_state) {
             state.stmts.push(stmt);
+        }
+    }
+
+    fn add_local_def(&mut self, local_def: FieldValue) {
+        // check if we do have an entry in the hashmap for the current state
+        if let Some(state) = self.states.get_mut(&self.current_state) {
+            state.locals.push(local_def);
         }
     }
 }
 
 /// implement the ``Visit``or trait to be able to parse the function body
 impl<'a> Visit<'a> for FunctionStates<'a> {
+    fn visit_expr_struct(&mut self, i: &'a ExprStruct) {
+        println!("{:#?}", i);
+        visit_expr_struct(self, i)
+    }
     /// visit an expression field - this is whenever a ".await" happened
     fn visit_expr_field(&mut self, expr: &'a ExprField) {
         // as the statement is always visited before the expression the meta data
@@ -479,7 +533,7 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                 member: Member::Named(ref ident),
                 ..
             } if ident.to_string() == "await" => {
-                println!("found await point as part of the statement");
+                //println!("found await point as part of the statement: \r\n {:#?}", expr);
                 stmt_meta.isAwait = true;
                 stmt_meta.await_call = Some(base);
             },
@@ -489,6 +543,36 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
         self.current_stmt_meta.replace(stmt_meta);
 
         visit_expr_field(self, expr)
+    }
+
+    /// visit any local variable declaration inside the function body
+    /// based on them we will later generate the local thinkable context
+    /// As locals might not be used accross await points this might lead to an
+    /// unoptimized usage of this - we will handle optimizations at a later point ;)
+    fn visit_local(&mut self, local: &'a Local) {
+        // extract the identifier and the type from the local
+        match local {
+            Local {
+                //let_token: Let,
+                pats,
+                ty: Some(
+                    (
+                        Colon,
+                        path
+                    )
+                ),
+                ..
+            } => {
+                // extract the identifier and adjust the assignment
+                let local_def = quote!(#pats: #path);
+                println!("Local def: {:#?}", local_def);
+                let tmp: FieldValue = syn::parse2(local_def).unwrap();
+                //self.local_defs.push(tmp);
+                self.add_local_def(tmp);
+            },
+            _ => ()
+        }
+        visit_local(self,local)
     }
     /*fn visit_expr(&mut self, e: &'a Expr) {
         println!("EXPR: {:#?}", e);
@@ -514,44 +598,6 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
         // whenever we visit a new statement we initialize the current metadata
         self.current_stmt_meta.replace(StmtMetadata { isAwait: false, await_call: None });
 
-        /*
-        // we need to check for a statement that indicates that we need to generate a new state
-        // for the Thinkable we are about to generate. This is the Rust standard keyword "await"
-        // in an expression similar to 'foo().await;'
-        match stmt {
-             // an expression followed by a semicolon is a good candidate
-            // now check the inner type of the same
-            Stmt::Semi(expr, semi) => {
-                match expr {
-                    Expr::Field(
-                        ExprField {
-                            base,
-                            dot_token: Dot,
-                            member: Member::Named(ref ident),
-                            ..
-                        }
-                    ) if ident.to_string() == "await" => {
-                        //println!("{:#?}", base);
-                        // detected an await position, increase the state number, everything
-                        // after this point goes to the next state
-                        self.current_state += 1;
-                        self.add_state(Some(base));
-                    },
-                    _ => self.add_statement(stmt),
-                }
-            },
-            // this is an local variable assignment. we need to check if this contains an await assignment
-            // if this is the case we have a new state where the new state will work with value concluded in this
-            // await point
-            Stmt::Local(_) => println!("visit Stmt::Local"),
-            _ => {
-                // println!("{:#?}", stmt);
-                println!("visit Stmt::*");
-                self.add_statement(stmt);
-            },
-        }
-        */
-
         // continue visiting the AST
         visit_stmt(self, stmt);
         
@@ -567,15 +613,37 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
             // in the new state. The concluded value is available as "result"
             match stmt {
                 Stmt::Local(local) => {
-                    println!("assignment for awaited stmt found");
-                    let assignment = quote!(let test = result;);
-                    self.tmp_stmt.push(syn::parse2(assignment).unwrap());
-                    self.add_statement(&self.tmp_stmt.last().unwrap());
+                    //println!("assignment for awaited stmt found");
+                    //println!("{:#?}", local);
+                    // extract the original identifier and type from the assignment
+                    // and use the awaited result as assignment expression
+                    // from: let b: u32 = thinkable().await; --> to: let b: u32 = result;
+                    match local {
+                        Local {
+                            let_token: Let,
+                            pats,
+                            ty: Some(
+                                (
+                                    Colon,
+                                    path
+                                )
+                            ),
+                            ..
+                        } => {
+                            // extract the identifier and adjust the assignment
+                            let assignment = quote!(let #pats: #path = result;);
+                            let tmp_stmt = syn::parse2(assignment).unwrap();
+                            self.add_statement(tmp_stmt);
+                        },
+                        _ => ()
+                    }
                 }
                 _ => ()
             }
         } else {
-            self.add_statement(stmt);
+            let test = quote!(#stmt);
+            let test = syn::parse2(test).unwrap();
+            self.add_statement(test);
         }
     }
 }

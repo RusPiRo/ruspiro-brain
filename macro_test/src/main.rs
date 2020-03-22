@@ -16,7 +16,7 @@ fn simple_stages() {
     let mut a = 10;
     wait(Mseconds(300), ()).await;
     a += 5;
-    let b = wait(Mseconds(100), a + 5).await;
+    let b: u32 = wait(Mseconds(100), a + 5).await;
     //let c = b*2 / a;
     //wait(Mseconds(300), ()).await;
 }
