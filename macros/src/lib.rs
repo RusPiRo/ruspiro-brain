@@ -18,10 +18,9 @@ extern crate syn;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{*, visit::*};
+use syn::{visit::*, *};
 
-use std::collections::{HashMap, BTreeMap};
-
+use std::collections::{BTreeMap, HashMap};
 
 /// Provide the Attribute ``#[WakeUpThought]`` to be used to define the initial ``Thinkable`` the
 /// ``Brain`` will think on as soon as beeing alive.
@@ -37,14 +36,14 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
     let valid_signature = func.abi.is_none()    // no "extern fn" used
         && func.constness.is_none()             // no "const fn"
         && func.vis == Visibility::Inherited    // a module private function
-        && func.decl.generics.params.is_empty() // no generics like "func<T>" supported as of now 
+        && func.decl.generics.params.is_empty() // no generics like "func<T>" supported as of now
         && func.decl.generics.where_clause.is_none() // also no where clause supported
         && func.decl.variadic.is_none() // no variadic "func(...)" parameters supported
         && match func.decl.output { // only default "()" return type allowed for the wakup thought
             ReturnType::Default => true,
             _ => false,
         };
-    
+
     if !valid_signature {
         return syn::Error::new(
             syn::export::Span::call_site(),
@@ -59,7 +58,7 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let thinkable_code = build_thinkable(&name, &func);
-    
+
     let attrs = &func.attrs;
     // now generate the code that will than be used by the compiler to build this function
     quote!(
@@ -75,18 +74,16 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
     */
 
     quote!(
-        fn wake_up() {
-            
-        }
-    ).into()
+        fn wake_up() {}
+    )
+    .into()
 }
-
 
 /// Provide the Attribute ``#[Thinkable]`` to 'annotate' a function that could be spawned to the `Brain``
 /// to asyncronous think on it. The result/conclusion of this ``Thinkable`` can be ``await``ed on to
 /// be used in other ``Thinkables``.
 /// The result of annotating a function to be ``Thinkable`` will be a generated enum representing the inner
-/// body of the function as a state maschine. 
+/// body of the function as a state maschine.
 /// Examples:
 /// ```no_run
 /// #[Thinkable]
@@ -99,16 +96,16 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     State_0(),
 ///     Empty,
 /// }
-/// 
+///
 /// impl Simple_Thinkable {
 ///     fn new() -> Self {
 ///         Self::State_0()
 ///     }
 /// }
-/// 
+///
 /// impl Thinkable for Simple_Thinkable {
 ///     type Output = ();
-/// 
+///
 ///     fn think(self: Pin<&mut self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
 ///         let this = unsafe { self.get_unchecked_mut() };
 ///         loop {
@@ -123,13 +120,13 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///         }
 ///     }
 /// }
-/// 
+///
 /// // finally the original function call will be adjusted to return the defined [Thinkable]
 /// fn simple() -> impl Thinkable<Output = ()> {
 ///     Simple_Thinkable::new()
 /// }
 /// ```
-/// 
+///
 ///  A Thinkable function that does have some await points that might look like this
 /// ```no_run
 /// #[Thinkable]
@@ -153,16 +150,16 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     State_2(Pin<Box<dyn Thinkable<Output = ()>>>),
 ///     Empty,
 /// }
-/// 
+///
 /// impl Simple_Thinkable {
 ///     fn new() -> Self {
 ///         Self::State_0()
 ///     }
 /// }
-/// 
+///
 /// impl Thinkable for Simple_Thinkable {
 ///     type Output = ();
-/// 
+///
 ///     fn think(self: Pin<&mut self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
 ///         let this = unsafe { self.get_unchecked_mut() };
 ///         loop {
@@ -186,7 +183,7 @@ pub fn WakeUpThought(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///         }
 ///     }
 /// }
-/// 
+///
 /// // finally the original function call will be adjusted to return the defined [Thinkable]
 /// fn simple() -> impl Thinkable<Output = ()> {
 ///     Simple_Thinkable::new()
@@ -198,7 +195,10 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     // get the function that is annotated
     let func = parse_macro_input!(item as ItemFn);
 
-    println!("generate Thinkable for annotated function {}", func.ident.to_string());
+    println!(
+        "generate Thinkable for annotated function {}",
+        func.ident.to_string()
+    );
 
     // do some verifications on this function to check if it's signature is valid
     let valid_signature = func.abi.is_none()    // no "extern fn" used
@@ -218,7 +218,8 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // now get the thinkable name we will need to generate
     let name = syn::Ident::new(
-        &format!("{}_thinkable", func.ident.to_string()), func.ident.span()
+        &format!("{}_thinkable", func.ident.to_string()),
+        func.ident.span(),
     );
 
     // next get the input parameter of the function as we need to pass them to the thinkable
@@ -227,9 +228,9 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     // also get the result of the function as this will have to be the Output type of the to be generated Thinkable
     let output = match &func.decl.output {
         ReturnType::Type(_, ty) => quote!( #ty ),
-        ReturnType::Default => quote!{ () },
+        ReturnType::Default => quote! { () },
     };
-    
+
     // finally parse the original function body to extract the different states the statemachine of the generated
     // Thinkable will require.
     let block = &func.block;
@@ -242,26 +243,23 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut state_names = Vec::new();
     let mut state_signature = Vec::new();
     for (key, value) in function_states.states.iter() {
-        state_names.push(
-            syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site())
-        );
+        state_names.push(syn::Ident::new(
+            &format!("State_{}", key),
+            quote::__rt::Span::call_site(),
+        ));
 
         if *key == 0 {
-            state_signature.push(
-                quote!( () )
-            );
+            state_signature.push(quote!(()));
         } else {
             let state_locals = &value.locals;
-            state_signature.push(
-                quote!(
-                    { wait_for: core::pin::Pin<alloc::boxed::Box<dyn Thinkable<Output = ()>>>,
-                      #(#state_locals),*
-                    })
-            )
+            state_signature.push(quote!(
+            { wait_for: core::pin::Pin<alloc::boxed::Box<dyn Thinkable<Output = ()>>>,
+              #(#state_locals),*
+            }))
         }
     }
 
-    let enum_definition = quote!{
+    let enum_definition = quote! {
         #[allow(non_camel_case_types)]
         enum #name {
             #(#state_names #state_signature),*,
@@ -277,14 +275,17 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     for input in inputs.iter() {
         match input {
             FnArg::Captured(ArgCaptured {
-                pat: syn::Pat::Ident(
-                    syn::PatIdent { by_ref: None, ident, .. }
-                ),
+                pat:
+                    syn::Pat::Ident(syn::PatIdent {
+                        by_ref: None,
+                        ident,
+                        ..
+                    }),
                 ..
             }) => input_identifier.push(ident),
             _ => unimplemented!(),
         }
-    };
+    }
 
     let input_identifier_ref = &input_identifier;
 
@@ -305,22 +306,21 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
     // from the HashMap create two arrays one with the state as identifier
     // and one with the corresponding statements
     let size = function_states.states.len();
-    let call_states: Vec<((u32, FunctionStateBody<'_>), usize)> = function_states.states.into_iter().zip(0..size).collect();
-    
-    for ((key, value), index) in &call_states { //function_states.states.iter().clone() {
-        // create the match branch name 
-        let branch_name = syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site());
+    let call_states: Vec<((u32, FunctionStateBody<'_>), usize)> =
+        function_states.states.into_iter().zip(0..size).collect();
+
+    for ((key, value), index) in &call_states {
+        //function_states.states.iter().clone() {
+        // create the match branch name
+        let branch_name =
+            syn::Ident::new(&format!("State_{}", key), quote::__rt::Span::call_site());
         // only the first match branch does not contain a Thinkable to wait for,
         // all other states refer to a THinkable they need to wait for before the state continues processing
         // the contained body...
         if *index == 0 {
-            state_branch.push(
-                quote!(Self::#branch_name())
-            );
+            state_branch.push(quote!(Self::#branch_name()));
         } else {
-            state_branch.push(
-                quote!(Self::#branch_name(wait_for))
-            );
+            state_branch.push(quote!(Self::#branch_name(wait_for)));
         }
         // prepare the statements that shall be used within this state
 
@@ -332,13 +332,16 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
         let next_state_stmts = if (index + 1) == call_states.len() {
             // the last state returns the final conclusion all is done...
             // TODO: return the conclusion value
-            quote!( return Conclusion::Ready(state_result))
+            quote!(return Conclusion::Ready(state_result))
         } else {
             // intermediate states will lead to a new state with the new Thinkable we are waiting for
-            let ((_, next_value),_) = &call_states[index + 1];
+            let ((_, next_value), _) = &call_states[index + 1];
             if let Some(await_call) = next_value.await_call {
                 // create the name of the next state we will be in when waiting for this thinkable
-                let statename = syn::Ident::new(&format!("State_{}", key + 1), quote::__rt::Span::call_site());
+                let statename = syn::Ident::new(
+                    &format!("State_{}", key + 1),
+                    quote::__rt::Span::call_site(),
+                );
                 quote!(
                     Self::#statename(
                         alloc::boxed::Box::pin(
@@ -375,7 +378,7 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         stmts.push(state_stmts);
-    };
+    }
     // println!("Stmts: {:#?}", stmts);
     // finally generate the implementation of the 'think' function of the
     // Thinkable trait
@@ -407,7 +410,8 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // define the structure containing the function bodies local variables
     let locals_name = syn::Ident::new(
-        &format!("{}_thinkable_locals", func.ident.to_string()), func.ident.span()
+        &format!("{}_thinkable_locals", func.ident.to_string()),
+        func.ident.span(),
     );
     let locals_def = &function_states.local_defs;
     //println!("local defs: {:#?}", locals_def);
@@ -436,7 +440,8 @@ pub fn Thinkable(attr: TokenStream, item: TokenStream) -> TokenStream {
         #thinkable_impl
 
         #func_impl
-    ).into()
+    )
+    .into()
 }
 
 /// struct representing the logical code block of a thinkeable functions state
@@ -447,7 +452,7 @@ struct FunctionStateBody<'a> {
     /// it's states logic
     //stmts: Vec<&'a Stmt>,
     stmts: Vec<Stmt>,
-    /// the list of local definitions of the current state that might need to be 
+    /// the list of local definitions of the current state that might need to be
     /// passed onto the next state
     locals: Vec<FieldValue>,
     _p: core::marker::PhantomData<&'a Stmt>,
@@ -459,7 +464,7 @@ struct StmtMetadata<'a> {
     await_call: Option<&'a Expr>,
 }
 
-/// struct used to visit the original function body of the function to be treateed as 
+/// struct used to visit the original function body of the function to be treateed as
 /// ``Thinkable`` that stores the states this function will run through
 #[derive(Debug)]
 struct FunctionStates<'a> {
@@ -482,19 +487,19 @@ impl<'a> FunctionStates<'a> {
             local_defs: Vec::new(),
         };
         state.add_state(None);
-        
+
         state
     }
 
     fn add_state(&mut self, await_call: Option<&'a Expr>) {
         self.states.insert(
             self.current_state,
-            FunctionStateBody { 
+            FunctionStateBody {
                 stmts: Vec::new(),
                 locals: Vec::new(),
-                await_call, 
-                _p: core::marker::PhantomData
-            }
+                await_call,
+                _p: core::marker::PhantomData,
+            },
         );
     }
 
@@ -536,8 +541,8 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                 //println!("found await point as part of the statement: \r\n {:#?}", expr);
                 stmt_meta.isAwait = true;
                 stmt_meta.await_call = Some(base);
-            },
-            _ => ()
+            }
+            _ => (),
         }
 
         self.current_stmt_meta.replace(stmt_meta);
@@ -555,12 +560,7 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
             Local {
                 //let_token: Let,
                 pats,
-                ty: Some(
-                    (
-                        Colon,
-                        path
-                    )
-                ),
+                ty: Some((Colon, path)),
                 ..
             } => {
                 // extract the identifier and adjust the assignment
@@ -569,38 +569,41 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                 let tmp: FieldValue = syn::parse2(local_def).unwrap();
                 //self.local_defs.push(tmp);
                 self.add_local_def(tmp);
-            },
-            _ => ()
+            }
+            _ => (),
         }
-        visit_local(self,local)
+        visit_local(self, local)
     }
     /*fn visit_expr(&mut self, e: &'a Expr) {
         println!("EXPR: {:#?}", e);
         visit_expr(self, e)
     }*/
-/*
-    fn visit_expr_let(&mut self, i: &'a ExprLet) {
-        println!("LET: {:#?}", i);
-        visit_expr_let(self, i)
-    }
+    /*
+        fn visit_expr_let(&mut self, i: &'a ExprLet) {
+            println!("LET: {:#?}", i);
+            visit_expr_let(self, i)
+        }
 
-    fn visit_expr_call(&mut self, i: &'a ExprCall) {
-        println!("CALL: {:#?}", i);
-        visit_expr_call(self, i)
-    }
+        fn visit_expr_call(&mut self, i: &'a ExprCall) {
+            println!("CALL: {:#?}", i);
+            visit_expr_call(self, i)
+        }
 
-    fn visit_expr_binary(&mut self, i: &'a ExprBinary) {
-        println!("BINARY: {:#?}", i);
-        visit_expr_binary(self, i)
-    }
-*/
+        fn visit_expr_binary(&mut self, i: &'a ExprBinary) {
+            println!("BINARY: {:#?}", i);
+            visit_expr_binary(self, i)
+        }
+    */
     fn visit_stmt(&mut self, stmt: &'a Stmt) {
         // whenever we visit a new statement we initialize the current metadata
-        self.current_stmt_meta.replace(StmtMetadata { isAwait: false, await_call: None });
+        self.current_stmt_meta.replace(StmtMetadata {
+            isAwait: false,
+            await_call: None,
+        });
 
         // continue visiting the AST
         visit_stmt(self, stmt);
-        
+
         // if this statement has been visited, we know how to treat it
         let stmt_meta = self.current_stmt_meta.take().unwrap();
         if stmt_meta.isAwait {
@@ -608,7 +611,7 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
             // after this point goes to the next state
             self.current_state += 1;
             self.add_state(stmt_meta.await_call);
-            // in case the result of the awaited call was assigned to a local to 
+            // in case the result of the awaited call was assigned to a local to
             // use it in subsequent statements we need to add this part as the first statement
             // in the new state. The concluded value is available as "result"
             match stmt {
@@ -622,23 +625,18 @@ impl<'a> Visit<'a> for FunctionStates<'a> {
                         Local {
                             let_token: Let,
                             pats,
-                            ty: Some(
-                                (
-                                    Colon,
-                                    path
-                                )
-                            ),
+                            ty: Some((Colon, path)),
                             ..
                         } => {
                             // extract the identifier and adjust the assignment
                             let assignment = quote!(let #pats: #path = result;);
                             let tmp_stmt = syn::parse2(assignment).unwrap();
                             self.add_statement(tmp_stmt);
-                        },
-                        _ => ()
+                        }
+                        _ => (),
                     }
                 }
-                _ => ()
+                _ => (),
             }
         } else {
             let test = quote!(#stmt);

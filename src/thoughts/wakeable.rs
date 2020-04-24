@@ -6,7 +6,7 @@
  **************************************************************************************************/
 
 //! # WakeAble Trait
-//! 
+//!
 //! This trait shall be implemented for everything that is abel to be process by the brain and
 //! therefore might need to be woken. It's based on the Rust std async/await framework that is not
 //! yet available in **no_std** build environments.

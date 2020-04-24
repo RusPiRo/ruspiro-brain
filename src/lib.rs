@@ -9,7 +9,7 @@
 #![feature(associated_type_bounds, asm)]
 
 //! # RusPiRo Brain
-//! 
+//!
 //! This is the **brain** of any RusPiRo - Robot running in a kind of 'async' processing mode.
 //! As for a human brain it's quite unlikely that everything get's processed in a sequential order.
 //! There are always several thoughts that are processed in parallel/simultaneous to accomplish a
@@ -36,7 +36,7 @@
 //! ------------------|-----------------------|---------------
 //! [``Thinkeable``]  | [``Future``](https://docs.rs/futures/0.3.1/futures/prelude/trait.Future.html) | The abstract things a brain can process need to implement this trait. But to come to a ``Conclusion`` the ``Brain`` need to actively **think** on it.
 //! [``Thought``]     | | This a logical unit containg a ``Thought`` the ``Brain`` can think on to drive it to a ``Conclusion``. It also contains a reference to the ``Brain``s ``Spawner`` to be able to put this ``Task`` back onto the Queue of things to think on again.
-//! [``Conclusion``]  | [``Poll``](https://docs.rs/futures/0.3.1/futures/task/enum.Poll.html) | This is the representation of the outcome of thinking on a ``Thinkable``. It could either be the actual result or indicating a pending state meaning this need to re-thought by the brain. 
+//! [``Conclusion``]  | [``Poll``](https://docs.rs/futures/0.3.1/futures/task/enum.Poll.html) | This is the representation of the outcome of thinking on a ``Thinkable``. It could either be the actual result or indicating a pending state meaning this need to re-thought by the brain.
 //! [``Wakeable``]    | [``ArcWake``](https://docs.rs/futures/0.3.1/futures/task/trait.ArcWake.html) | This trait is implemented for the ``Thought`` and indicates that this one could be re-thought by the brain by waking it.
 //! [``Waker``]       | | This is the abstract representation of something that could be waken up. It could be seen as a storage for a ``RawWaker`` that contains the function pointers to the ``Wakeable``s wake functions.
 //! [``Context``]     | | This is actually the container used to pass the the ``Waker`` along to the ``Thinkable`` to allow the same to use the contained ``Waker`` (a clone of it) to be registers for waking up this ``Thinkable`` if it was not yet able to provide a ``Conclusion``
@@ -45,9 +45,10 @@
 //!
 //!
 
-#[cfg(not(any(test, doctest)))]
+/*#[cfg(not(any(test, doctest)))]
 #[macro_use]
 extern crate ruspiro_boot;
+*/
 extern crate alloc;
 
 pub use either::*;
@@ -58,12 +59,13 @@ use ruspiro_interrupt::*;
 use ruspiro_singleton::Singleton;
 
 mod brain;
-use brain::*;
+pub use brain::*;
 pub mod mpmc;
 
 mod thoughts;
 pub use thoughts::*;
 
+/*
 pub(crate) static BRAIN: Singleton<Brain> = Singleton::new(Brain::new());
 
 #[cfg(not(any(test, doctest)))]
@@ -194,7 +196,7 @@ macro_rules! awake_with {
         }
     };
 }
-
+*/
 
 #[cfg(test)]
 mod tests;

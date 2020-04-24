@@ -15,7 +15,7 @@ use either::Either;
 impl<L, R> Thinkable for Either<L, R>
 where
     L: Thinkable,
-    R: Thinkable<Output = L::Output>
+    R: Thinkable<Output = L::Output>,
 {
     type Output = <R as Thinkable>::Output;
 

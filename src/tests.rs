@@ -10,7 +10,7 @@ struct CountThought {
 }
 
 impl CountThought {
-    fn new(id: u32 ,count_to: u32) -> Self {
+    fn new(id: u32, count_to: u32) -> Self {
         Self {
             id,
             count_to,
@@ -42,7 +42,7 @@ struct CountThought2 {
 }
 
 impl CountThought2 {
-    fn new(id: u32 ,count_to: u32) -> Self {
+    fn new(id: u32, count_to: u32) -> Self {
         Self {
             id,
             count_to,
@@ -78,10 +78,7 @@ fn simple_thinkable() {
 fn mapped_thinkable() {
     let mut brain = Brain::new();
     brain.initialize();
-    brain.spawn(
-        CountThought2::new(0, 100)
-            .map(|count| println!("counted to: {} in map", count))
-    );
+    brain.spawn(CountThought2::new(0, 100).map(|count| println!("counted to: {} in map", count)));
     brain.think();
 }
 
@@ -89,13 +86,10 @@ fn mapped_thinkable() {
 fn then_thinkable() {
     let mut brain = Brain::new();
     brain.initialize();
-    brain.spawn(
-        CountThought2::new(0, 100)
-            .then(|count| {
-                println!("counted to {}, then...", count);
-                CountThought::new(1, count+100)
-            })
-    );
+    brain.spawn(CountThought2::new(0, 100).then(|count| {
+        println!("counted to {}, then...", count);
+        CountThought::new(1, count + 100)
+    }));
     brain.think();
 }
 
@@ -109,7 +103,7 @@ fn map_then_thinkable() {
             .then(|_| {
                 println!("mappend, then...");
                 CountThought::new(1, 50)
-            })
+            }),
     );
     brain.think();
 }

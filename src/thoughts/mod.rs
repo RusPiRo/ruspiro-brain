@@ -6,7 +6,7 @@
  **************************************************************************************************/
 
 //! # Thinkable
-//! 
+//!
 //! The [``Thinkable``] trait shall be implementes for things the [``Brain``] need to thiink on to
 //! come to a [``Conclusion``]
 //!
@@ -33,7 +33,7 @@ pub enum Conclusion<T> {
 pub trait Thinkable {
     type Output;
 
-    /// The function to progress on a [``Thinkable``]. The [``Brain``] need to activiely think on a 
+    /// The function to progress on a [``Thinkable``]. The [``Brain``] need to activiely think on a
     /// [``Thinkable``] to finally come to any [``Conclusion``] for it.
     #[must_use]
     fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output>;

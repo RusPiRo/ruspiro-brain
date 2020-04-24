@@ -88,7 +88,7 @@ impl<T> Queue<T> {
     pub fn pop(&self) -> Pop<T> {
         // for the time beeing popping from the queue is not "lockfree". However, as this happens
         // only outside of an interrupt this might be fine
-        
+
         //self.guard.aquire();
         //info!("pop mpmc");
         let result = unsafe {
@@ -120,7 +120,6 @@ impl<T> Queue<T> {
                 let _: Box<Node<T>> = Box::from_raw(dummy);
                 Pop::Data(value)
             } else {
-
                 // if we get here the current head does not have any next item, so the queue is actually
                 // empty, or does contain the dummy entry, so restore the original head entry
                 let dummy = self.head.swap(head, Ordering::SeqCst);

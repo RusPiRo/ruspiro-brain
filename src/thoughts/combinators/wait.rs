@@ -17,9 +17,9 @@ pub enum WaitThinkable<T> {
 }
 
 pub fn wait<T>(delay: Mseconds, value: T) -> WaitThinkable<T> {
-    WaitThinkable::Initial { 
+    WaitThinkable::Initial {
         delay,
-        value: Some(value)
+        value: Some(value),
     }
 }
 
@@ -29,7 +29,7 @@ impl<T> Thinkable for WaitThinkable<T> {
     fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
         let this = unsafe { self.get_unchecked_mut() };
         match this {
-            Self::Initial{delay, value} => {
+            Self::Initial { delay, value } => {
                 let waker = cx.waker().clone();
                 schedule(*delay, move || {
                     waker.wake();
@@ -37,7 +37,7 @@ impl<T> Thinkable for WaitThinkable<T> {
 
                 *this = Self::Ready(value.take());
                 Conclusion::Pending
-            },
+            }
             Self::Ready(value) => Conclusion::Ready(value.take().unwrap()),
         }
     }

@@ -41,6 +41,8 @@ impl WakeAble for Thought {
         // as waking might not have been done based on an IRQ or similar event there is a chance that
         // the cores keep "sleeping". So trigger an event to wake them up
         #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-        unsafe { asm!("sev") };
+        unsafe {
+            asm!("sev")
+        };
     }
 }

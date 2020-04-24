@@ -11,7 +11,7 @@
 
 use crate::alloc::sync::Arc;
 use crate::mpmc::*;
-use crate::thoughts::{*, wakeable::waker_ref_from_wakeable};
+use crate::thoughts::{wakeable::waker_ref_from_wakeable, *};
 use ruspiro_lock::DataLock;
 
 pub trait Spawn {
@@ -35,7 +35,18 @@ impl Brain {
         }
     }
 
-    #[allow(clippy::must_use_unit)]
+    pub fn default() -> Self {
+        // create a new multi-producer-multi-consumer channel queue that contains all *need-to-think-on*
+        // items that could be pushed in and pulled off from any core, preserving the correct order.
+        let (tx, rx) = channel();
+
+        Brain {
+            sender: Some(tx),
+            receiver: Some(rx),
+        }
+    }
+
+    //#[allow(clippy::must_use_unit)]
     #[must_use]
     pub fn initialize(&mut self) {
         // create a new multi-producer-multi-consumer channel queue that contains all *need-to-think-on*

@@ -29,13 +29,13 @@ assert_matches = "1.2"
 [dependencies]
 pin-utils = "0.1.0-alpha.4"
 either = { version = "1.5.3", default-features = false }
-ruspiro-boot = { path = "../boot", version = "0.3", features = ["with_panic"] }
-ruspiro-singleton = { path = "../singleton", version = "0.3" }
-ruspiro-lock = { path = "../lock", version = "0.3" }
-ruspiro-interrupt = { path = "../interrupt", version = "0.3" }
-ruspiro-timer = { path = "../timer", version = "0.4" }
+ruspiro-boot = { version = "0.3", features = ["with_panic"] }
+ruspiro-singleton = "0.3"
+ruspiro-lock = "0.3"
+ruspiro-interrupt = "0.3"
+ruspiro-timer = "0.4"
 ruspiro-brain-macros = { path = "./macros" }
-ruspiro-console = { path = "../console", version = "0.3" }
+ruspiro-console = "0.3"
 
 [features]
 singlecore = ["ruspiro-boot/singlecore"]
