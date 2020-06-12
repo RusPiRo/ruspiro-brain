@@ -10,6 +10,8 @@
 
 use alloc::boxed::Box;
 use core::sync::atomic::{AtomicPtr, Ordering};
+use ruspiro_lock::Spinlock;
+//use ruspiro_console::*;
 
 /// Representation of an entry in the [Queue]
 #[derive(Debug)]
@@ -40,6 +42,8 @@ pub struct Queue<T> {
     /// The tail of the [Queue] refers to the last node of the [Queue] new items can be [pushed]ed
     /// after
     tail: AtomicPtr<Node<T>>,
+
+    guard: Spinlock,
 }
 
 // The Queue is Send and Sync as it can be savely used accross cores
@@ -65,6 +69,7 @@ impl<T> Queue<T> {
         Queue {
             head: AtomicPtr::new(root),
             tail: AtomicPtr::new(root),
+            guard: Spinlock::new(),
         }
     }
 
@@ -89,7 +94,7 @@ impl<T> Queue<T> {
         // for the time beeing popping from the queue is not "lockfree". However, as this happens
         // only outside of an interrupt this might be fine
 
-        //self.guard.aquire();
+        self.guard.aquire();
         //info!("pop mpmc");
         let result = unsafe {
             // get the first "pop-able" node from the head and replace it with a dummy node
@@ -110,15 +115,27 @@ impl<T> Queue<T> {
                 // this will now let any other core see the new head, the dummy is gone
                 self.head.store(next, Ordering::Release);
                 //info!("stored");
+                if (*next).value.is_none() {
+                    // this should never happen!
+                    //error!("next value is none !? at {:#x?}", next);
+                    //warn!("origin head: {:#x?}", head,);
+                    //warn!("actual head: {:#x?}", self.head);
+                    //warn!("Dummy: {:#x?}", dummy);
 
-                let value = (*next).value.take().unwrap();
-                // we have stored a Box as rawpointer in the list
-                // construct the Box from the raw pointer and "forget" about it to properly
-                // destruct the same
-                let _: Box<Node<T>> = Box::from_raw(head);
-                // destruct the dummy node to release the memory
-                let _: Box<Node<T>> = Box::from_raw(dummy);
-                Pop::Data(value)
+                    // destruct the dummy node to release the memory
+                    let _: Box<Node<T>> = Box::from_raw(dummy);
+
+                    Pop::Intermediate
+                } else {
+                    let value = (*next).value.take().unwrap();
+                    // we have stored a Box as rawpointer in the list
+                    // construct the Box from the raw pointer and "forget" about it to properly
+                    // destruct the same
+                    let _: Box<Node<T>> = Box::from_raw(head);
+                    // destruct the dummy node to release the memory
+                    let _: Box<Node<T>> = Box::from_raw(dummy);
+                    Pop::Data(value)
+                }
             } else {
                 // if we get here the current head does not have any next item, so the queue is actually
                 // empty, or does contain the dummy entry, so restore the original head entry
@@ -135,7 +152,7 @@ impl<T> Queue<T> {
                 }
             }
         };
-        //self.guard.release();
+        self.guard.release();
         result
     }
 }

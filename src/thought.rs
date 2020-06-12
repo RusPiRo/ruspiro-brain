@@ -6,12 +6,14 @@
  **********************************************************************************************************************/
 
 //! # A Thought
-//! A [``Thought``] is a container that wrapps a [``Thinkable``] to allow the [``Brain``] to think on
-//! it. The [``Thought``] keeps a reference to the [``Thinkable``] and allows re-thinking on the
+//! A [``Thought``] is a container that wrapps a [``Future``] to allow the [``Brain``] to think on
+//! it. The [``Thought``] keeps a reference to the [``Future``] and allows re-thinking on the
 //! same by spawning the [``Thought``] again to the [``Brain``]
 //!
 use crate::mpmc::Sender;
-use crate::thoughts::{wakeable::WakeAble, Thinkable};
+use crate::wakeable::WakeAble;
+use core::future::Future;
+use core::task::Waker;
 use alloc::{boxed::Box, sync::Arc};
 use core::pin::Pin;
 use ruspiro_lock::DataLock;
@@ -20,7 +22,7 @@ use ruspiro_lock::DataLock;
 /// action this [``Thought``]] was meant to trigger
 pub(crate) struct Thought {
     /// this is the thinkable this [``Thought``] should make progress on
-    pub thinkable: DataLock<Option<Pin<Box<dyn Thinkable<Output = ()> + 'static + Send>>>>,
+    pub thinkable: DataLock<Option<Pin<Box<dyn Future<Output = ()> + 'static + Send>>>>,
     /// this is the spawning "channel" that could re-spawn this task when the brain was not able
     /// to complete thinking on thr thought. Without this, the executer could not know how to
     /// re-spawn this task
@@ -42,7 +44,7 @@ impl WakeAble for Thought {
         // the cores keep "sleeping". So trigger an event to wake them up
         #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
         unsafe {
-            asm!("sev")
+            llvm_asm!("sev")
         };
     }
 }

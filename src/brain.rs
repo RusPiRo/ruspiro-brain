@@ -10,12 +10,16 @@
 //!
 
 use crate::alloc::sync::Arc;
-use crate::mpmc::*;
-use crate::thoughts::{wakeable::waker_ref_from_wakeable, *};
+use crate::alloc::boxed::Box;
+use crate::mpmc::{Sender, Receiver, channel};
+use crate::thought::Thought;
+use crate::wakeable::{WakeAble, waker_ref_from_wakeable};
+use core::future::Future;
+use core::task::{Context, Poll};
 use ruspiro_lock::DataLock;
 
 pub trait Spawn {
-    fn spawn(&self, thinkable: impl Thinkable<Output = ()> + 'static + Send);
+    fn spawn(&self, thinkable: impl Future<Output = ()> + 'static + Send);
 }
 
 pub struct Brain {
@@ -63,8 +67,10 @@ impl Brain {
     /// be called again, however we might send the current core to *sleep* until such an event happens
     pub fn think(&self) {
         if let Some(ref receiver) = self.receiver {
+            //info!("thinking...");
             // pull a new Thought from the *need-to-think-on-queue*
             while let Ok(thought) = receiver.recv() {
+                //info!("thought to think");
                 // check if we can get the Thinkable that is wrapped by this Thought. The only situation this
                 // lock could fail is, if this exact ``Thinkable`` has been re-spawned from it's ``Waker``
                 // and another core already picked this up while this actual processing has not yet finished.
@@ -73,19 +79,22 @@ impl Brain {
                 // back on the *need-to-think-of-queue* which might cause an even greater delay in processing
                 // that is less expected then this short blocking
                 let mut thinkable_slot = thought.thinkable.lock();
-                if let Some(mut thinkable) = thinkable_slot.take() {
+                if let Some(mut future) = thinkable_slot.take() {
+                    //info!("thinking possible");
                     // bevore actually thinking on this Thinkable is possible we need to create a ``Context``
                     // that contains the ``Waker`` that is able to re-spawn this ``Thinkable`` in case it's
                     // not already comming to a ``Conclusion::Ready(_)``
                     let waker = waker_ref_from_wakeable(&thought);
                     let ctx = &mut Context::from_waker(&*waker);
                     // now think on this ``Thinkable``
-                    if let Conclusion::Pending = thinkable.as_mut().think(ctx) {
+                    if let Poll::Pending = future.as_mut().poll(ctx) {
+                        //info!("not concluded");
                         // thinking does not come to a conclusion yet, so the waker will put a clone of
                         // this task back to the *need-to-think-on-queue*. As we have taken the ``Thought``
                         // out of it's slot, we need to put it back to ensure the ``Task`` when picked up
                         // from it's queue is properly linked to the ``Thinkable`` it should think on.
-                        *thinkable_slot = Some(thinkable);
+                        *thinkable_slot = Some(future);
+                        //info!("stored for re-thinking");
                     }
                 }
             }
@@ -94,17 +103,17 @@ impl Brain {
 }
 
 impl Spawn for Brain {
-    /// Spawn a new [``Thinkable``] to the [``Brain``}s *need-to-think-on-queue*
-    fn spawn(&self, thinkable: impl Thinkable<Output = ()> + 'static + Send) {
+    /// Spawn a new [``Future``] to the [``Brain``}s *need-to-think-on-queue*
+    fn spawn(&self, thinkable: impl Future<Output = ()> + 'static + Send) {
         self.sender.as_ref().map(|sender| {
             // first box and pin the Thought to ensure we can savely share it between cores as it's
             // location in memory cannot move
-            let thinkable = thinkable.boxed();
+            let future = Box::pin(thinkable);
             // now crate an async reference counted task on the HEAP that is able to be pushed to the
             // queue containing the ``Thought`` to think on and the spawner to be able to re-spawn this
             // task in case it was not able to make progress in the first attempt of thinkin on it
             let thought = Arc::new(Thought {
-                thinkable: DataLock::new(Some(thinkable)),
+                thinkable: DataLock::new(Some(future)),
                 spawner: sender.clone(),
             });
             sender.send(thought);
@@ -126,18 +135,18 @@ mod test {
         ready: u32,
     }
 
-    impl Thinkable for TestThought {
+    impl Future for TestThought {
         type Output = ();
 
-        fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let mut counter = self.counter.borrow_mut();
             *counter += 1;
             if *counter > self.ready {
-                Conclusion::Ready(())
+                Poll::Ready(())
             } else {
                 println!("current count: {}", *counter);
                 cx.waker().wake_by_ref();
-                Conclusion::Pending
+                Poll::Pending
             }
         }
     }
@@ -183,24 +192,25 @@ mod test {
         ready: u32,
     }
 
-    impl Thinkable for FirstThought {
+    impl Future for FirstThought {
         type Output = u32;
 
-        fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let mut counter = self.counter.borrow_mut();
             *counter += 1;
             if *counter > self.ready {
-                Conclusion::Ready(*counter)
+                Poll::Ready(*counter)
             } else {
                 println!("current first count: {}", *counter);
                 cx.waker().wake_by_ref();
-                Conclusion::Pending
+                Poll::Pending
             }
         }
     }
 
     #[test]
     fn create_brain_and_think_then() {
+        use futures_util::future::{FutureExt, ready};
         let mut brain = Brain::new();
         brain.initialize();
 

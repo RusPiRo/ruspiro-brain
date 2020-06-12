@@ -7,14 +7,15 @@
 
 //! # WakeAble Trait
 //!
-//! This trait shall be implemented for everything that is abel to be process by the brain and
-//! therefore might need to be woken. It's based on the Rust std async/await framework that is not
-//! yet available in **no_std** build environments.
+//! This trait shall be implemented for everything that is able to be process by the brain and
+//! therefore might need to be woken. It's based on the Rust std async/await framework
 //! This trait is mainly the representation of: https://rust-lang-nursery.github.io/futures-api-docs/0.3.0-alpha.16/src/futures_util/task/arc_wake.rs.html
 //!
 
-use crate::thoughts::waker::*;
+//use crate::thoughts::waker::*;
+use core::task::{Waker, RawWaker, RawWakerVTable};
 use alloc::sync::Arc;
+use crate::wakerref::WakerRef;
 
 pub trait WakeAble {
     fn wake(self: Arc<Self>) {
@@ -28,13 +29,17 @@ pub trait WakeAble {
         Self: Sized,
     {
         let wakeable_ptr = Arc::into_raw(self) as *const ();
-        Waker::from_raw(RawWaker::new(
-            wakeable_ptr,
-            wake_wakeable_raw::<Self>,
-            wake_by_ref_wakeable_raw::<Self>,
-            clone_wakeable_raw::<Self>,
-            drop_wakeable_raw::<Self>,
-        ))
+        unsafe {
+            Waker::from_raw(RawWaker::new(
+                wakeable_ptr,
+                &RawWakerVTable::new(
+                    clone_wakeable_raw::<Self>,
+                    wake_wakeable_raw::<Self>,
+                    wake_by_ref_wakeable_raw::<Self>,
+                    drop_wakeable_raw::<Self>,
+                )
+            ))
+        }
     }
 }
 
@@ -42,14 +47,18 @@ pub trait WakeAble {
 pub fn waker_ref_from_wakeable<T: WakeAble>(wakeable: &Arc<T>) -> WakerRef<'_> {
     // get the raw pointer to the wakeable reference/borrow passed
     let wakeable = &*wakeable as &T as *const T as *const ();
-    let waker = Waker::from_raw(RawWaker::new(
-        wakeable,
-        wake_wakeable_raw::<T>,
-        wake_by_ref_wakeable_raw::<T>,
-        clone_wakeable_raw::<T>,
-        // WakerRef wakeables are dropped "manually", a drop here would lead to double drops
-        noop::<T>,
-    ));
+    let waker = unsafe {
+            Waker::from_raw(RawWaker::new(
+            wakeable,
+            &RawWakerVTable::new(
+                clone_wakeable_raw::<T>,
+                wake_wakeable_raw::<T>,
+                wake_by_ref_wakeable_raw::<T>,
+                // WakerRef wakeables are dropped "manually", a drop here would lead to double drops
+                noop::<T>,
+            )
+        ))
+    };
 
     WakerRef::new(waker)
 }
@@ -90,10 +99,12 @@ pub unsafe fn clone_wakeable_raw<T: WakeAble>(wakeable: *const ()) -> RawWaker {
 
     RawWaker::new(
         wakeable,
-        wake_wakeable_raw::<T>,
-        wake_by_ref_wakeable_raw::<T>,
-        clone_wakeable_raw::<T>,
-        drop_wakeable_raw::<T>,
+        &RawWakerVTable::new(
+            clone_wakeable_raw::<T>,
+            wake_wakeable_raw::<T>,
+            wake_by_ref_wakeable_raw::<T>,
+            drop_wakeable_raw::<T>,
+        )
     )
 }
 
@@ -113,7 +124,7 @@ pub unsafe fn noop<T: WakeAble>(_: *const ()) {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::thoughts::context::Context;
+    use core::task::Context;
     use ruspiro_lock::DataLock;
 
     struct CountingWaker {

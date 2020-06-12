@@ -1,6 +1,9 @@
 use super::*;
 use alloc::sync::Arc;
 use core::pin::Pin;
+use core::future::Future;
+use core::task::{Context, Poll};
+use futures_util::future::{FutureExt, ready};
 use ruspiro_lock::Semaphore;
 
 struct CountThought {
@@ -19,18 +22,18 @@ impl CountThought {
     }
 }
 
-impl Thinkable for CountThought {
+impl Future for CountThought {
     type Output = ();
 
-    fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = unsafe { self.get_unchecked_mut() };
         if this.current < this.count_to {
             this.current += 1;
             cx.waker().wake_by_ref();
-            Conclusion::Pending
+            Poll::Pending
         } else {
             println!("counted to {}", this.count_to);
-            Conclusion::Ready(())
+            Poll::Ready(())
         }
     }
 }
@@ -51,17 +54,17 @@ impl CountThought2 {
     }
 }
 
-impl Thinkable for CountThought2 {
+impl Future for CountThought2 {
     type Output = u32;
 
-    fn think(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Conclusion<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = unsafe { self.get_unchecked_mut() };
         if this.current < this.count_to {
             this.current += 1;
             cx.waker().wake_by_ref();
-            Conclusion::Pending
+            Poll::Pending
         } else {
-            Conclusion::Ready(this.count_to)
+            Poll::Ready(this.count_to)
         }
     }
 }
@@ -105,5 +108,20 @@ fn map_then_thinkable() {
                 CountThought::new(1, 50)
             }),
     );
+    brain.think();
+}
+
+#[test]
+fn use_async() {
+    async fn counting() {
+        let count = CountThought2::new(0, 200).await;
+        println!("counted in async fn to {}", count);
+    };
+
+    let mut brain = Brain::new();
+    let _ = brain.initialize();
+
+    brain.spawn(counting());
+
     brain.think();
 }

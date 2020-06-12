@@ -1,4 +1,6 @@
-# Brain crate for the RusPiRo kernel
+# The Brain of the RusPiRo kernel
+
+The Brain enables asynchronous 'thinking'.
 
 [![Travis-CI Status](https://api.travis-ci.org/RusPiRo/ruspiro-brain.svg?branch=master)](https://travis-ci.org/RusPiRo/ruspiro-brian)
 [![Latest Version](https://img.shields.io/crates/v/ruspiro-brain.svg)](https://crates.io/crates/ruspiro-brain)

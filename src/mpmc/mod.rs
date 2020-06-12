@@ -11,7 +11,7 @@
 use alloc::sync::Arc;
 mod queue;
 use queue::*;
-use ruspiro_console::*;
+//use ruspiro_console::*;
 
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
     let queue = Arc::new(Queue::new());
