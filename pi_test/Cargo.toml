@@ -9,17 +9,24 @@ license = "Apache-2.0"
 edition = "2018"
 publish = false
 
-[workspace]
-
 [[bin]]
 name = "kernel"
 path = "./src/kernel.rs"
 
 [dependencies]
-#ruspiro-register = { path = "../../register" }
+ruspiro-boot = { path = "../../boot" }
 ruspiro-allocator = { path = "../../allocator" }
-ruspiro-console = { path = "../../console" }
-#ruspiro-timer = { path = "../../timer", features = ["ruspiro_pi3"] }
-ruspiro-brain = { path = "../", features = ["ruspiro_pi3", "singlecore"] }
+ruspiro-console ="0.3"
+ruspiro-brain = { path = "../" }
+
+[features]
+ruspiro_pi3 = [ 
+    "ruspiro-boot/ruspiro_pi3",
+]
+
+[patch.crates-io]
+ruspiro-mailbox = { path = "../../mailbox" }
 #ruspiro-lock = { path = "../../lock" }
-#ruspiro-interrupt = { path = "../../interrupt", version = "0.3" }
+#ruspiro-allocator = { path = "../../allocator" }
+ruspiro-console = { path = "../../console" }
+ruspiro-cache = { path = "../../cache" }

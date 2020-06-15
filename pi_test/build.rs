@@ -3,7 +3,7 @@ use std::{env, fs, path::Path};
 fn main() {
     // copy the linker script from the boot crate to the current directory
     // so it will be invoked by the linker
-    let ld_source = env::var_os("DEP_RUSPIRO_BRAIN_LINKERSCRIPT")
+    let ld_source = env::var_os("DEP_RUSPIRO_BOOT_LINKERSCRIPT")
         .expect("error in ruspiro build, `ruspiro-boot` not a dependency?")
         .to_str()
         .unwrap()
