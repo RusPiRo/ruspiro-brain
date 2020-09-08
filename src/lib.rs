@@ -25,6 +25,8 @@
 //!
 //!
 
+#![feature(llvm_asm)]
+
 extern crate alloc;
 
 pub use either::*;
