@@ -6,14 +6,14 @@ description = """
 The ``Brain`` provides the heart of the async "thinking" of a **RusPiRo** bare metal kernel for the
 Raspberry Pi.
 """
-license = "Apache-2.0"
-repository = "https://github.com/RusPiRo/ruspiro-brain/tree/v0.1.0"
-documentation = "https://docs.rs/ruspiro-brain/0.1.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/RusPiRo/ruspiro-brain/tree/v||VERSION||"
+documentation = "https://docs.rs/ruspiro-brain/||VERSION||"
 readme = "README.md"
 keywords = ["RusPiRo", "baremetal", "raspberrypi", "brain", "async"]
 categories = ["no-std", "embedded"]
 edition = "2018"
-exclude = ["/pi_test"]
+exclude = [".travis.yml", "Makefile.toml"]
 
 
 [badges]
@@ -23,19 +23,15 @@ maintenance = { status = "actively-developed" }
 [lib]
 
 [dev-dependencies]
-assert_matches = "1.2"
-futures-util = { version = "0.3.5", default-features = false }
+assert_matches = "1.4"
+futures-util = { version = "0.3", default-features = false }
 
 [dependencies]
 pin-utils = "0.1.0-alpha.4"
-either = { version = "1.5.3", default-features = false }
-ruspiro-singleton = "0.3"
-ruspiro-lock = "0.3"
+either = { version = "1.6", default-features = false }
+ruspiro-singleton = "0.4"
+ruspiro-lock = "0.4"
 ruspiro-interrupt = "0.3"
-#ruspiro-timer = "0.4"
-#ruspiro-console = "0.3"
+ruspiro-channel = { git = "https://github.com/RusPiRo/ruspiro-channel.git" }
 
 [features]
-ruspiro_pi3 = [
-#    "ruspiro-timer/ruspiro_pi3"
-]
