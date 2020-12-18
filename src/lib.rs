@@ -4,9 +4,9 @@
  * Author: André Borrmann
  * License: MIT OR Apache License 2.0
  **********************************************************************************************************************/
- #![doc(html_root_url = "https://docs.rs/ruspiro-brain/||VERSION||")]
- #![cfg_attr(not(any(test, doctest)), no_std)]
- 
+#![doc(html_root_url = "https://docs.rs/ruspiro-brain/||VERSION||")]
+#![cfg_attr(not(any(test, doctest)), no_std)]
+
 //! # The Brain
 //!
 
@@ -23,7 +23,6 @@ use core::{
 };
 use ruspiro_channel::mpmc;
 use ruspiro_lock::sync::{Mutex, RWLock};
-
 use thought::*;
 use wakeable::Wakeable;
 
@@ -60,10 +59,8 @@ impl Brain {
             //info!("starte thinking");
             loop {
                 while let Ok(thought) = receiver.recv() {
-                    //info!("think on a thought");
                     // create the Waker from the current Thought
                     let waker = Wakeable::into_waker(&thought);
-                    //println!("{:?}", waker);
                     // create the Context from the given Waker
                     let mut context = Context::from_waker(&waker);
                     // lock the Future contained in the Thought and poll it
@@ -81,7 +78,6 @@ impl Brain {
 
     /// Add a new `Future` to the [Brain], so it can be processed
     fn think_on(&self, thinkable: Box<dyn Future<Output = ()> + 'static>) {
-        //info!("think on a new Thought");
         // ensure the given Future is getting a fixed position on the HEAP
         let thinkable = Pin::from(thinkable);
         if let Some(ref sender) = self.sender {

@@ -18,19 +18,16 @@ use crate::wakeable::Wakeable;
 use ruspiro_channel::mpmc;
 use ruspiro_lock::sync::Mutex;
 
-// ANCHOR: thought
 pub struct Thought {
     /// This is the actual thing the brain should process as part of the Thought
     pub thinkable: Mutex<Pin<Box<dyn Future<Output = ()> + 'static>>>,
 
     pub sender: mpmc::Sender<Arc<Thought>>,
 }
-// ANCHOR_END: thought
 
 impl Wakeable for Thought {
     fn wake_by_ref(self: &Arc<Self>) {
         let clone = Arc::clone(self);
-
         self.sender.send(clone);
     }
 }

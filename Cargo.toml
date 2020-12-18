@@ -27,11 +27,8 @@ assert_matches = "1.4"
 futures-util = { version = "0.3", default-features = false }
 
 [dependencies]
-pin-utils = "0.1.0-alpha.4"
-either = { version = "1.6", default-features = false }
 ruspiro-singleton = "0.4"
 ruspiro-lock = "0.4"
-ruspiro-interrupt = "0.3"
 ruspiro-channel = { git = "https://github.com/RusPiRo/ruspiro-channel.git" }
 
 [features]
